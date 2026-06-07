@@ -1,0 +1,86 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: 普通构建测试
+    runs-on: ubuntu-latest
+    steps:
+      # 拉取当前仓库源码。
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 按 go.mod 中声明的版本安装 Go。
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # 普通测试不需要 llama.cpp 动态库。
+      - name: Test
+        run: make test
+
+  package:
+    name: package ${{ matrix.asset }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux x64 CPU 动态库包。
+          - os: ubuntu-24.04
+            asset: linux-amd64
+            processor: cpu
+          # Linux arm64 CPU 动态库包。
+          - os: ubuntu-24.04-arm
+            asset: linux-arm64
+            processor: cpu
+          # macOS Intel CPU 动态库包。
+          - os: macos-15-intel
+            asset: darwin-amd64
+            processor: cpu
+          # macOS arm64 Metal 动态库包。
+          - os: macos-15
+            asset: darwin-arm64-metal
+            processor: metal
+
+    steps:
+      # 拉取当前仓库源码。
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 按 go.mod 中声明的版本安装 Go。
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # 构建 devwiki 二进制。
+      - name: Build binary
+        run: make build BINARY=.devwiki/bin/devwiki-${{ matrix.asset }}
+
+      # 安装 yzma/llama.cpp 预编译动态库。
+      - name: Install llama.cpp libraries
+        run: make install-llama BINARY=.devwiki/bin/devwiki-${{ matrix.asset }} LLAMA_PROCESSOR=${{ matrix.processor }}
+
+      # 确认构建产物可以启动并打印帮助。
+      - name: Smoke test
+        run: .devwiki/bin/devwiki-${{ matrix.asset }} --help
+
+      # 打包当前平台产物。
+      - name: Package
+        run: make package BINARY=.devwiki/bin/devwiki-${{ matrix.asset }} PACKAGE=.devwiki/dist/devwiki-${{ matrix.asset }}.tar.gz
+
+      # 上传多平台构建产物。
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: devwiki-${{ matrix.asset }}
+          path: .devwiki/dist/devwiki-${{ matrix.asset }}.tar.gz
