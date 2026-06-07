@@ -7,12 +7,12 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/JieWaZi/wikimesh/pkg/qmd/internal/llamaruntime"
+	"github.com/JieWaZi/wikimesh/pkg/qmd/llamaruntime"
 	"github.com/hybridgroup/yzma/pkg/download"
 )
 
 // LlamaLibProgressTracker 接收 llama.cpp 动态库下载进度。
-// 它的接口形状与底层下载器兼容，但不会把 qmd/internal 包暴露给调用方。
+// 它的接口形状与底层下载器兼容，但不会把底层运行时包暴露给调用方。
 type LlamaLibProgressTracker interface {
 	// TrackProgress 包装下载流并报告当前字节数和总字节数。
 	TrackProgress(path string, currentSize, totalSize int64, stream io.ReadCloser) io.ReadCloser

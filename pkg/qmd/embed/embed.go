@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/JieWaZi/wikimesh/pkg/qmd/internal/log"
+	"github.com/JieWaZi/wikimesh/pkg/qmd/qmdlog"
 )
 
 // Embedder 把文本转换成向量。
@@ -90,7 +90,7 @@ func NewFromConfig(cfg Config) Embedder {
 func NewCascade(provider string, apiKey string, baseURL string, override *EmbedOverride) Embedder {
 	if provider == "local" || (override != nil && override.Provider == "local") {
 		if override == nil || override.Model == "" {
-			log.Warn("local embedding requires embedding.model to point to a GGUF model")
+			qmdlog.Warn("local embedding requires embedding.model to point to a GGUF model")
 			return nil
 		}
 		embedder, err := NewLlamaCppEmbedder(LlamaCppConfig{
@@ -100,7 +100,7 @@ func NewCascade(provider string, apiKey string, baseURL string, override *EmbedO
 			Dimensions:   override.Dimensions,
 		})
 		if err != nil {
-			log.Warn("local embedding unavailable", "error", err)
+			qmdlog.Warn("local embedding unavailable", "error", err)
 			return nil
 		}
 		return embedder
@@ -157,9 +157,9 @@ func NewCascade(provider string, apiKey string, baseURL string, override *EmbedO
 				limiter:  newEmbedLimiter(override.RateLimit),
 			}
 			if dims > 0 {
-				log.Info("embedding provider detected", "tier", 0, "provider", p, "model", override.Model, "dims", dims)
+				qmdlog.Info("embedding provider detected", "tier", 0, "provider", p, "model", override.Model, "dims", dims)
 			} else {
-				log.Info("embedding provider detected", "tier", 0, "provider", p, "model", override.Model, "dims", "auto-detect")
+				qmdlog.Info("embedding provider detected", "tier", 0, "provider", p, "model", override.Model, "dims", "auto-detect")
 			}
 			return embedder
 		}
@@ -183,13 +183,13 @@ func NewCascade(provider string, apiKey string, baseURL string, override *EmbedO
 			client:   newEmbedHTTPClient(),
 			limiter:  newEmbedLimiter(rateLimit),
 		}
-		log.Info("embedding provider detected", "tier", 1, "provider", provider, "model", model, "dims", dims)
+		qmdlog.Info("embedding provider detected", "tier", 1, "provider", provider, "model", model, "dims", dims)
 		return embedder
 	}
 
 	// 第 2 层：本地 Ollama。
 	if ollamaAvailable() {
-		log.Info("embedding provider detected", "tier", 2, "provider", "ollama", "model", "nomic-embed-text", "dims", 768)
+		qmdlog.Info("embedding provider detected", "tier", 2, "provider", "ollama", "model", "nomic-embed-text", "dims", 768)
 		return &OllamaEmbedder{
 			model:   "nomic-embed-text",
 			dims:    768,
@@ -199,7 +199,7 @@ func NewCascade(provider string, apiKey string, baseURL string, override *EmbedO
 		}
 	}
 
-	log.Warn("no embedding provider available — vector search disabled. Install Ollama or configure an embedding-capable provider.")
+	qmdlog.Warn("no embedding provider available — vector search disabled. Install Ollama or configure an embedding-capable provider.")
 	return nil
 }
 
@@ -305,7 +305,7 @@ func (e *APIEmbedder) embedOpenAILong(runes []rune) ([]float32, error) {
 	for j := range pooled {
 		pooled[j] *= inv
 	}
-	log.Info("embed: mean-pooled long input", "model", e.model, "chunks", chunks, "chars", len(runes))
+	qmdlog.Info("embed: mean-pooled long input", "model", e.model, "chunks", chunks, "chars", len(runes))
 	return pooled, nil
 }
 
@@ -359,7 +359,7 @@ func (e *APIEmbedder) embedOpenAI(text string) ([]float32, error) {
 	// 从第一次响应自动推断向量维度。
 	if e.dims == 0 {
 		e.dims = len(embedding)
-		log.Info("auto-detected embedding dimensions", "model", e.model, "dims", e.dims)
+		qmdlog.Info("auto-detected embedding dimensions", "model", e.model, "dims", e.dims)
 	}
 
 	return embedding, nil

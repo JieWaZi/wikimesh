@@ -1,5 +1,5 @@
 GO ?= go
-GOCACHE ?= /private/tmp/wikimesh-go-build-cache
+GOCACHE ?= $(CURDIR)/.cache/go-build
 BINARY ?= .wikimesh/bin/wikimesh
 PACKAGE ?= .wikimesh/dist/wikimesh.tar.gz
 LLAMA_LIB ?= .wikimesh/lib

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/JieWaZi/wikimesh/pkg/qmd/internal/llamaruntime"
+	"github.com/JieWaZi/wikimesh/pkg/qmd/llamaruntime"
 	"github.com/hybridgroup/yzma/pkg/llama"
 )
 

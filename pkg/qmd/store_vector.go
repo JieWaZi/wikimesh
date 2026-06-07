@@ -6,7 +6,7 @@ import (
 	"errors"
 	"sort"
 
-	"github.com/JieWaZi/wikimesh/pkg/qmd/internal/index"
+	"github.com/JieWaZi/wikimesh/pkg/qmd/index"
 )
 
 // Search 执行文档级 BM25 检索。

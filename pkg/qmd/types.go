@@ -3,7 +3,7 @@ package qmd
 import (
 	"context"
 
-	"github.com/JieWaZi/wikimesh/pkg/qmd/internal/embed"
+	"github.com/JieWaZi/wikimesh/pkg/qmd/embed"
 )
 
 // Config 是 Store 的总配置。

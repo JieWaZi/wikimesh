@@ -62,25 +62,77 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      # 构建 devwiki 二进制。
+      # 构建 wikimesh 二进制。
       - name: Build binary
-        run: make build BINARY=.devwiki/bin/devwiki-${{ matrix.asset }}
+        run: make build BINARY=.wikimesh/bin/wikimesh-${{ matrix.asset }}
 
       # 安装 yzma/llama.cpp 预编译动态库。
       - name: Install llama.cpp libraries
-        run: make install-llama BINARY=.devwiki/bin/devwiki-${{ matrix.asset }} LLAMA_PROCESSOR=${{ matrix.processor }}
+        run: make install-llama BINARY=.wikimesh/bin/wikimesh-${{ matrix.asset }} LLAMA_PROCESSOR=${{ matrix.processor }}
 
       # 确认构建产物可以启动并打印帮助。
       - name: Smoke test
-        run: .devwiki/bin/devwiki-${{ matrix.asset }} --help
+        run: .wikimesh/bin/wikimesh-${{ matrix.asset }} --help
 
       # 打包当前平台产物。
       - name: Package
-        run: make package BINARY=.devwiki/bin/devwiki-${{ matrix.asset }} PACKAGE=.devwiki/dist/devwiki-${{ matrix.asset }}.tar.gz
+        run: make package BINARY=.wikimesh/bin/wikimesh-${{ matrix.asset }} PACKAGE=.wikimesh/dist/wikimesh-${{ matrix.asset }}.tar.gz
 
       # 上传多平台构建产物。
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: devwiki-${{ matrix.asset }}
-          path: .devwiki/dist/devwiki-${{ matrix.asset }}.tar.gz
+          name: wikimesh-${{ matrix.asset }}
+          path: .wikimesh/dist/wikimesh-${{ matrix.asset }}.tar.gz
+
+  package-windows:
+    name: package windows-amd64
+    runs-on: windows-latest
+    steps:
+      # 拉取当前仓库源码。
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 按 go.mod 中声明的版本安装 Go。
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Windows 不走 Makefile，避免 Unix shell 语法和 PowerShell 不兼容。
+      - name: Build binary
+        shell: pwsh
+        run: |
+          $env:GOCACHE = Join-Path $env:RUNNER_TEMP "wikimesh-go-build-cache"
+          New-Item -ItemType Directory -Force .wikimesh/bin | Out-Null
+          go build -o .wikimesh/bin/wikimesh-windows-amd64.exe ./cmd/wikimesh
+
+      # 安装 Windows 版 yzma/llama.cpp 预编译动态库。
+      - name: Install llama.cpp libraries
+        shell: pwsh
+        run: '& .\.wikimesh\bin\wikimesh-windows-amd64.exe model lib install --lib .wikimesh/lib --processor cpu --os windows'
+
+      # 确认构建产物可以启动并打印帮助。
+      - name: Smoke test
+        shell: pwsh
+        run: '& .\.wikimesh\bin\wikimesh-windows-amd64.exe --help'
+
+      # 打包 Windows 产物。zip 是 Windows 用户最自然的分发格式。
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force .wikimesh/package | Out-Null
+          New-Item -ItemType Directory -Force .wikimesh/dist | Out-Null
+          Copy-Item .wikimesh/bin/wikimesh-windows-amd64.exe .wikimesh/package/
+          if (Test-Path .wikimesh/lib) {
+            Copy-Item .wikimesh/lib/* .wikimesh/package/ -Recurse -Force
+          }
+          Compress-Archive -Path .wikimesh/package/* -DestinationPath .wikimesh/dist/wikimesh-windows-amd64.zip -Force
+
+      # 上传 Windows 构建产物。
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wikimesh-windows-amd64
+          path: .wikimesh/dist/wikimesh-windows-amd64.zip

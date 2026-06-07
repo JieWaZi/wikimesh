@@ -13,10 +13,10 @@ flowchart TB
     Public --> Store[Store]
     Public --> Types[Config / Collection / Options / Result]
 
-    Store --> Extract[pkg/qmd/internal/extract]
-    Store --> Index[pkg/qmd/internal/index]
-    Store --> Embed[pkg/qmd/internal/embed]
-    Store --> Runtime[pkg/qmd/internal/llamaruntime]
+    Store --> Extract[pkg/qmd/extract]
+    Store --> Index[pkg/qmd/index]
+    Store --> Embed[pkg/qmd/embed]
+    Store --> Runtime[pkg/qmd/llamaruntime]
 
     Index --> SQLite[(SQLite)]
     Index --> FTS[FTS5]
@@ -28,8 +28,8 @@ flowchart TB
 
 维护规则：
 
-- 外部包只能 import `github.com/JieWaZi/wikimesh/pkg/qmd`。
-- `pkg/qmd/internal/...` 是 SDK 私有实现，不能被 CLI 或业务方直接依赖。
+- 普通调用方优先 import `github.com/JieWaZi/wikimesh/pkg/qmd`，由 `Store` 统一编排检索流程。
+- `pkg/qmd/embed`、`pkg/qmd/extract`、`pkg/qmd/index`、`pkg/qmd/llamaruntime` 是低层组件包，供 SDK 内部和需要细粒度能力的调用方使用。
 - 公共 API 使用 `Config`、`Collection`、`SearchOptions`、`QueryOptions`、`SearchResult` 等公开类型。
 - 内部实现类型不从公开 API 泄漏出去。
 

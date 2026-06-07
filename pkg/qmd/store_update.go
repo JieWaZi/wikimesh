@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JieWaZi/wikimesh/pkg/qmd/internal/extract"
-	"github.com/JieWaZi/wikimesh/pkg/qmd/internal/index"
+	"github.com/JieWaZi/wikimesh/pkg/qmd/extract"
+	"github.com/JieWaZi/wikimesh/pkg/qmd/index"
 )
 
 // UpdateCollection 扫描 collection 并刷新文档级 FTS 与 chunk 索引。

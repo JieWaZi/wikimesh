@@ -3,8 +3,8 @@ package qmd
 import (
 	"database/sql"
 
-	"github.com/JieWaZi/wikimesh/pkg/qmd/internal/embed"
-	"github.com/JieWaZi/wikimesh/pkg/qmd/internal/index"
+	"github.com/JieWaZi/wikimesh/pkg/qmd/embed"
+	"github.com/JieWaZi/wikimesh/pkg/qmd/index"
 )
 
 const defaultChunkSize = 900

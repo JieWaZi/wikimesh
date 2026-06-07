@@ -10,15 +10,15 @@ Wikimesh 是一个 Go 实现的本地文档 collection 管理和检索工具。�
 cmd/wikimesh        CLI 入口，只负责启动命令
 internal/cli       CLI 命令编排、配置加载和 JSON 输出
 pkg/qmd            qmd 风格检索 SDK 的公共 API
-pkg/qmd/internal   qmd SDK 私有实现：抽取、索引、embedding、llama.cpp 运行时
+pkg/qmd/*          qmd SDK 底层组件：抽取、索引、embedding、llama.cpp 运行时
 ```
 
 核心边界：
 
-- CLI 只依赖 `github.com/JieWaZi/wikimesh/pkg/qmd`，不直接依赖 `pkg/qmd/internal/...`。
-- `pkg/qmd/internal/...` 不反向依赖 `github.com/JieWaZi/wikimesh/pkg/qmd`。
+- CLI 只依赖 `github.com/JieWaZi/wikimesh/pkg/qmd`，不直接编排底层组件包。
+- `pkg/qmd/embed`、`pkg/qmd/extract`、`pkg/qmd/index`、`pkg/qmd/llamaruntime` 不反向依赖 `github.com/JieWaZi/wikimesh/pkg/qmd`。
 - SDK 的公开 API 不暴露 SQLite、FTS、chunk、向量表或本地模型运行时的内部类型。
-- 根目录 `internal` 保留应用层私有代码；qmd 的实现细节保留在 `pkg/qmd/internal`。
+- 根目录 `internal` 保留应用层私有代码；qmd 的 SDK 门面和底层组件都放在 `pkg/qmd` 范围内。
 
 ## 能力概览
 
