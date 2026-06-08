@@ -1,38 +1,53 @@
 # Wikimesh
 
-Wikimesh 是一个 Go 实现的本地知识库与文档 collection 管理工具。它把结构化 Wiki 工作区、文档扫描、索引、embedding、关键词检索、向量检索和混合查询集中在一个可本地运行的 CLI 与 SDK 中，适合给项目文档、知识库和代码说明建立可查询的本地索引。
+Wikimesh 是一个用 Go 实现的本地知识库、结构化 Wiki 和文档 collection 管理工具。它把 Wiki 工作区、文档扫描、SQLite/FTS 索引、embedding、关键词检索、向量检索、混合查询和 runtime skill 安装集中在一个可本地运行的 CLI 与 SDK 中。
 
-项目里的 qmd 能力位于 [`pkg/qmd`](pkg/qmd/README.md)，它是参考 [tobi/qmd](https://github.com/tobi/qmd) 项目设计做出的 Go 简化实现。当前实现以本仓库 Go 代码为准，不要求和上游项目在每个接口、命令和内部细节上完全一致。
+当前项目包含两层能力：
+
+- `wikimesh` CLI：初始化和维护结构化 Wiki，安装 runtime skills，管理项目来源，读取和搜索 Topic/Workflow 页面。
+- `pkg/qmd` SDK：管理 collection、刷新索引、生成 embedding，并提供关键词检索、向量检索和混合 Query。
+
+qmd 能力位于 [`pkg/qmd`](pkg/qmd/README.md)。它参考 [tobi/qmd](https://github.com/tobi/qmd) 的 collection、索引和混合检索思路实现，但公开 API、配置字段、命令形态和内部细节以本仓库当前 Go 代码为准。
 
 ## 项目结构
 
 ```text
-cmd/wikimesh        CLI 入口，只负责启动命令
-internal/cli       CLI 命令编排、配置加载和 JSON 输出
-internal/ui        CLI logo、中文 help 和集中 i18n 文案
-pkg/qmd            qmd 风格检索 SDK 的公共 API
-pkg/qmd/*          qmd SDK 底层组件：抽取、索引、embedding、llama.cpp 运行时
+cmd/wikimesh                         CLI 入口，只负责构造并启动根命令
+internal/cli                         CLI 命令编排、配置加载、JSON 输出和 Wiki 页面操作
+internal/cli/init/template/docs       wikimesh init 生成的 DevWiki 工作区模板
+internal/app/updateapp                自更新服务
+internal/ui                          CLI logo、中文 help、交互组件和集中 i18n 文案
+pkg/qmd                              qmd 风格检索 SDK 的公共 API
+pkg/qmd/embed                        embedding 后端和 llama.cpp 调用
+pkg/qmd/extract                      文档读取、标题提取和 chunk 切分
+pkg/qmd/index                        SQLite、FTS5、chunk 元数据和向量表
+pkg/qmd/llamaruntime                 llama.cpp 运行时库安装
+skills/devwiki                       本仓库内置的 DevWiki runtime skills
 ```
 
 核心边界：
 
-- CLI 只依赖 `github.com/JieWaZi/wikimesh/pkg/qmd`，不直接编排底层组件包。
-- `pkg/qmd/embed`、`pkg/qmd/extract`、`pkg/qmd/index`、`pkg/qmd/llamaruntime` 不反向依赖 `github.com/JieWaZi/wikimesh/pkg/qmd`。
+- CLI 通过 `github.com/JieWaZi/wikimesh/pkg/qmd` 使用检索能力，不直接编排 SQLite、FTS、chunk 或向量表细节。
+- `pkg/qmd/embed`、`pkg/qmd/extract`、`pkg/qmd/index`、`pkg/qmd/llamaruntime` 是 qmd 底层组件包，不反向依赖 `pkg/qmd` 的 SDK 门面。
 - SDK 的公开 API 不暴露 SQLite、FTS、chunk、向量表或本地模型运行时的内部类型。
-- 根目录 `internal` 保留应用层私有代码；qmd 的 SDK 门面和底层组件都放在 `pkg/qmd` 范围内。
+- 根目录 `internal` 保留应用层私有代码；可被外部复用的检索 API 放在 `pkg/qmd`。
+- CLI 用户可见文案集中在 `internal/ui`，命令实现不直接散落展示字符串。
 
 ## 能力概览
 
 ```mermaid
 flowchart LR
-    CLI[wikimesh CLI] --> SDK[pkg/qmd Store]
+    CLI[wikimesh CLI] --> WIKI[结构化 Wiki]
+    CLI --> SKILL[runtime skills]
+    CLI --> REPO[项目来源配置]
+    CLI --> QMD[qmd 命令组]
+    QMD --> SDK[pkg/qmd Store]
     SDK --> COL[collection 管理]
     SDK --> IDX[文档扫描和索引]
     SDK --> EMB[embedding 生成]
     SDK --> FTS[BM25 关键词检索]
     SDK --> VEC[chunk 向量检索]
     SDK --> HYB[混合 Query]
-
     IDX --> DB[(SQLite)]
     FTS --> DB
     VEC --> DB
@@ -43,19 +58,18 @@ flowchart LR
 
 Wikimesh 当前支持：
 
-- 初始化 Wikimesh 工作区：生成 `raw/`、`wiki/`、`config/` 和运行时入口文件。
-- 读取、搜索和校验 Topic/Workflow 页面。
-- 按 Wiki 类型安装本仓库内置 runtime skills；当前内置 `devwiki`，用于软件工程知识库。
-- 管理 collection：新增、列出、删除和刷新索引。
-- 建立文档索引：扫描 Markdown/文本文件，写入文档级 FTS 和 chunk 索引。
-- 生成向量：对已索引 chunk 写入 embedding 向量，支持按 collection 过滤和强制重建。
-- 关键词检索：基于 SQLite FTS5 和 BM25。
-- 向量检索：基于 chunk embedding，按文档去重并保留最佳 chunk。
-- 混合查询：同时召回关键词和向量结果，做 RRF 融合，并可接入 query expansion 与 reranker。
-- 本地模型管理：下载配置中的 GGUF 模型，安装 llama.cpp 运行时动态库。
-- 自更新：从 GitHub Release 下载匹配当前平台的 Wikimesh 产物，校验 `checksums.txt` 后替换当前正在运行的可执行文件。
+- 初始化 Wikimesh/DevWiki 工作区，生成 `raw/`、`wiki/`、`config/`、`.wikimesh/qmd.yaml` 和目标 agent 的运行时入口文件。
+- 安装本仓库内置 runtime skills；当前内置 Wiki 类型是 `devwiki`，面向软件工程知识库。
+- 读取和搜索 `topic` / `workflow` 页面视图，并校验一等知识页面的 `card`、`core`、`explain` section。
+- 管理项目来源：登记本地或远端 Wiki 项目、关联代码仓、切换当前激活来源、输出来源配置。
+- 管理 qmd collection：新增、列出、删除和刷新索引。
+- 扫描 Markdown/文本文件，写入文档级 FTS、chunk FTS、chunk 元数据和向量表。
+- 为已索引 chunk 生成 embedding，支持按 collection 过滤、覆盖模型配置和强制重建。
+- 执行关键词检索、向量检索和混合查询；结果默认以缩进 JSON 输出，便于脚本和 agent 消费。
+- 下载配置中的 GGUF 模型，安装 llama.cpp 运行时动态库。
+- 从 GitHub Release 自更新当前 Wikimesh 可执行文件，并校验 `checksums.txt`。
 
-## 快速使用
+## 快速开始
 
 构建或直接运行 CLI：
 
@@ -65,22 +79,71 @@ make build
 .wikimesh/bin/wikimesh --help
 ```
 
+初始化一个 DevWiki 工作区：
+
+```sh
+wikimesh init "My Project" --agent codex --code-dir . --yes
+```
+
+初始化会在当前目录创建工作区文件，并把项目级 runtime 目录写入 `.gitignore`。常见目录如下：
+
+```text
+./
+├── README.md
+├── AGENTS.md 或 CLAUDE.md
+├── config/
+│   └── project.yaml
+├── raw/
+├── wiki/
+│   ├── index.md
+│   ├── glossary.md
+│   ├── topics/
+│   ├── workflows/
+│   └── outputs/
+└── .wikimesh/
+    └── qmd.yaml
+```
+
+登记并查看 Wikimesh 项目来源：
+
+```sh
+wikimesh repo add "My Project" .
+wikimesh repo link "My Project" app .
+wikimesh repo info
+wikimesh repo info "My Project"
+```
+
+搜索和读取 Wiki 页面：
+
+```sh
+wikimesh search index "功能"
+wikimesh search glossary "术语"
+wikimesh search topic "功能边界"
+wikimesh search workflow "索引刷新"
+wikimesh read topic <slug> --view card
+wikimesh read workflow <slug> --view core
+wikimesh check document
+```
+
 更新当前安装的 Wikimesh 可执行文件：
 
 ```sh
 wikimesh update
 ```
 
-首次使用时，`wikimesh init` 会生成 `.wikimesh/qmd.yaml`。也可以手动添加 collection：
+## qmd 使用
+
+默认 qmd 配置路径是当前工作区的 `.wikimesh/qmd.yaml`。如果配置不存在，qmd 命令会按默认值创建它。
+
+新增、查看和刷新 collection：
 
 ```sh
-wikimesh init "My Project" --agent codex --code-dir . --yes
 wikimesh qmd collection add ./docs --name docs
 wikimesh qmd collection list
 wikimesh qmd collection update docs
 ```
 
-如果需要向量检索或混合查询，先下载模型、安装本地运行时并生成 embedding：
+如果需要向量检索或混合查询，先下载模型、安装 llama.cpp 运行时库，再生成 embedding：
 
 ```sh
 wikimesh qmd model download all
@@ -88,38 +151,100 @@ wikimesh qmd model lib install
 wikimesh qmd embed --collection docs
 ```
 
-执行检索：
+执行 qmd 检索：
 
 ```sh
-wikimesh search topic "功能边界"
-wikimesh read topic <slug> --view core
-wikimesh qmd search "collection 配置"
-wikimesh qmd vsearch "如何刷新文档索引"
-wikimesh qmd query "Wikimesh 如何执行混合查询？" --no-rerank
+wikimesh qmd search "collection 配置" --collection docs
+wikimesh qmd vsearch "如何刷新文档索引" --collection docs
+wikimesh qmd query "Wikimesh 如何执行混合查询？" --collection docs --no-rerank
 ```
 
-`wikimesh qmd search`、`wikimesh qmd vsearch` 和 `wikimesh qmd query` 默认输出 JSON，便于脚本或其他工具消费；`wikimesh search` 面向 Wiki 页面导航，默认输出 Markdown 表格。
+常用选项：
+
+- `--project <project>`：读取已登记项目的 `.wikimesh/qmd.yaml`。
+- `--collection, -c <name>`：限制目标 collection，可重复传入。
+- `--limit, -n <number>`：限制返回条数。
+- `--all`：返回更大的结果集。
+- `--min-score <score>`：设置最低分数。
+- `wikimesh qmd vsearch --raw`：只使用原始 query 做纯向量检索，不使用 query expansion。
+- `wikimesh qmd embed --force`：重新生成已存在的 embedding。
+
+`wikimesh qmd search`、`wikimesh qmd vsearch` 和 `wikimesh qmd query` 默认输出 JSON。顶层 `wikimesh search` 面向 Wiki 页面导航，默认输出 Markdown 表格。
 
 ## 配置文件
 
-默认 qmd 配置路径是当前 Wikimesh 工作区的 `.wikimesh/qmd.yaml`。根命令不再提供全局 `--config`，qmd 会直接读取当前工作区配置。
-
-一个最小配置示例：
+`.wikimesh/qmd.yaml` 使用 qmd 风格的 map 结构管理 collections：
 
 ```yaml
 db_path: .wikimesh/wiki.db
 chunk_size: 900
 chunk_overlap: 0.15
+models:
+  embed: hf:Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf
+  rerank: hf:ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF/qwen3-reranker-0.6b-q8_0.gguf
+  generate: hf:tobil/qmd-query-expansion-1.7B-gguf/qmd-query-expansion-1.7B-q4_k_m.gguf
 embedding:
   provider: local
   model: .wikimesh/models/Qwen3-Embedding-0.6B-Q8_0.gguf
+query_expansion:
+  provider: local
+  model: .wikimesh/models/qmd-query-expansion-1.7B-q4_k_m.gguf
+reranker:
+  provider: local
+  model: .wikimesh/models/qwen3-reranker-0.6b-q8_0.gguf
 collections:
   docs:
     path: ./docs
     pattern: "**/*.md"
+    context:
+      api/: SDK 文档
+  raw:
+    path: ./raw
+    pattern: "**/*.md"
+    includeByDefault: false
 ```
 
-`collections` 使用 qmd 风格的 map 结构。`includeByDefault: false` 可以让某个 collection 默认不参与顶层 `search`、`vsearch` 和 `query`。
+字段说明：
+
+- `db_path`：SQLite 数据库路径，默认 `.wikimesh/wiki.db`。
+- `chunk_size`：chunk 大小，默认 `900`。
+- `chunk_overlap`：相邻 chunk 重叠比例，默认 `0.15`。
+- `models`：模型来源，支持 qmd 当前实现可解析的来源格式。
+- `embedding`、`query_expansion`、`reranker`：本地模型角色配置。
+- `collections.<name>.path`：collection 扫描根目录。
+- `collections.<name>.pattern`：默认扫描 `**/*.md`。
+- `collections.<name>.include` / `ignore`：额外包含或忽略规则。
+- `collections.<name>.update`：刷新 collection 前可执行的命令。
+- `collections.<name>.includeByDefault: false`：让该 collection 默认不参与顶层 `search`、`vsearch` 和 `query`。
+- `collections.<name>.context`：为路径前缀补充上下文说明。
+
+## 主要命令
+
+```text
+wikimesh init                         初始化 Wikimesh 工作区
+wikimesh update                       更新当前 Wikimesh 可执行文件
+wikimesh search                       搜索 index/glossary/topic/workflow
+wikimesh read                         读取 topic/workflow 的指定 view
+wikimesh glossary keywords            输出 glossary 第一列关键词
+wikimesh check document               校验 Wiki 页面结构
+wikimesh repo add/info/link/use        管理 Wikimesh 项目来源
+wikimesh skill install                安装 runtime skills
+wikimesh qmd collection ...           管理 qmd collection
+wikimesh qmd search                   执行文档级关键词检索
+wikimesh qmd vsearch                  执行 chunk 级向量检索
+wikimesh qmd query                    执行混合查询
+wikimesh qmd embed                    为已索引 chunk 生成 embedding
+wikimesh qmd model download           下载配置中的 GGUF 模型
+wikimesh qmd model lib install        安装 llama.cpp 运行时库
+```
+
+查看准确参数时，以当前二进制的 help 输出为准：
+
+```sh
+wikimesh --help
+wikimesh qmd --help
+wikimesh qmd query --help
+```
 
 ## 开发验证
 
@@ -130,34 +255,34 @@ gofmt -w <changed-go-files>
 go test ./...
 ```
 
-涉及 `skills/devwiki/share-references` 的共享 reference 时，先运行：
+本仓库的 `Makefile` 提供了常用入口：
 
 ```sh
-wikimesh skill refs sync
+make test
+make build
+make package
+make clean
 ```
 
-本仓库提供 `.githooks/pre-commit` 作为本地提交前校验入口。首次启用需执行：
+本地 Go 环境如果出现标准库编译版本不一致，可按 Makefile 的方式清理 `GOROOT` 并使用项目内构建缓存：
 
 ```sh
-git config core.hooksPath .githooks
+env -u GOROOT GOCACHE=$(pwd)/.cache/go-build go test ./...
 ```
 
-涉及架构边界、依赖关系或公共 API 时，还应运行：
+涉及架构边界、依赖方向或公共 API 时，还应运行：
 
 ```sh
 go vet ./...
 go list -f '{{.ImportPath}} -> {{join .Imports ","}}' ./...
 ```
 
-本仓库的 `Makefile` 提供了常用命令：
+启用本地提交前校验：
 
 ```sh
-make test
-make build
-make install-llama
-make package
+git config core.hooksPath .githooks
 ```
 
 ## SDK 文档
 
-`pkg/qmd` 是项目的公共检索 SDK。它的架构图、查询设计、配置字段和 Go 代码示例见 [`pkg/qmd/README.md`](pkg/qmd/README.md)。
+`pkg/qmd` 是项目的公共检索 SDK。它的包边界、索引架构、查询设计、配置字段、扩展点和 Go 示例见 [`pkg/qmd/README.md`](pkg/qmd/README.md)。
