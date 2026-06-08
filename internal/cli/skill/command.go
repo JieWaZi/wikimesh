@@ -2,7 +2,7 @@ package skillcmd
 
 import (
 	"fmt"
-	"github.com/JieWaZi/wikimesh/internal/cli/common"
+	"github.com/JieWaZi/wikimesh/internal/app/skillapp"
 	"github.com/spf13/cobra"
 	"io"
 
@@ -40,23 +40,23 @@ func newInstallCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&agent, "agent", "codex", msg.FlagAgent)
-	cmd.Flags().StringVar(&wikiType, "type", common.DefaultWikiSkillType(), msg.FlagWikiType)
+	cmd.Flags().StringVar(&wikiType, "type", skillapp.DefaultType(), msg.FlagWikiType)
 	return cmd
 }
 
 // runWikiSkillInstall 从 GitHub 安装最新 Wikimesh runtime skills。
 func runWikiSkillInstall(out io.Writer, agent string, wikiType string, ref string) error {
 	if wikiType == "" {
-		wikiType = common.DefaultWikiSkillType()
+		wikiType = skillapp.DefaultType()
 	}
-	bundle, err := common.ResolveWikimeshSkills(wikiType, ref)
+	bundle, err := skillapp.ResolveWikimeshSkills(wikiType, ref)
 	if err != nil {
 		return err
 	}
 	if bundle.Cleanup != nil {
 		defer func() { _ = bundle.Cleanup() }()
 	}
-	if err := common.InstallWikiSkills(agent, false, bundle.Skills); err != nil {
+	if err := skillapp.Install(agent, false, bundle.Skills); err != nil {
 		return err
 	}
 	_, err = fmt.Fprintf(out, ui.Messages().OutputWikiSkillsInstalledFmt, agent, wikiType, len(bundle.Skills))

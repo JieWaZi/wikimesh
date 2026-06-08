@@ -9,7 +9,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/JieWaZi/wikimesh/internal/cli/common"
+	"github.com/JieWaZi/wikimesh/internal/app/qmdapp"
 	"github.com/JieWaZi/wikimesh/internal/ui"
 )
 
@@ -45,7 +45,7 @@ func newEmbedCommand() *cobra.Command {
 
 // runEmbed 为已索引文档生成 embedding 向量。
 func runEmbed(ctx context.Context, out, errOut io.Writer, configPath string, opts embedCLIOptions) error {
-	cfg, err := common.LoadQMDConfig(configPath)
+	cfg, err := qmdapp.LoadConfig(configPath)
 	if err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func runEmbed(ctx context.Context, out, errOut io.Writer, configPath string, opt
 		return err
 	}
 
-	store, err := common.OpenQMDStoreFromConfig(ctx, cfg)
+	store, err := qmdapp.OpenStoreFromConfig(ctx, cfg)
 	if err != nil {
 		return err
 	}

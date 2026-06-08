@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JieWaZi/wikimesh/internal/cli/common"
+	"github.com/JieWaZi/wikimesh/internal/app/qmdapp"
 	"github.com/JieWaZi/wikimesh/internal/ui"
 )
 
@@ -89,7 +89,7 @@ func runAdd(ctx context.Context, cfg qmd.FileConfig, configPath string, store *q
 	if opts.include != "" {
 		collection.Include = strings.Split(opts.include, ",")
 	}
-	return common.AddQMDCollectionAndSync(ctx, cfg, configPath, store, collection)
+	return qmdapp.AddCollectionAndSync(ctx, cfg, configPath, store, collection)
 }
 
 func newCollectionListCommand() *cobra.Command {
@@ -148,7 +148,7 @@ func runRemove(ctx context.Context, out io.Writer, cfg qmd.FileConfig, configPat
 		return err
 	}
 	if removed {
-		if err := common.SyncQMDConfigFile(ctx, cfg, configPath, store); err != nil {
+		if err := qmdapp.SyncConfigFile(ctx, cfg, configPath, store); err != nil {
 			return err
 		}
 	}

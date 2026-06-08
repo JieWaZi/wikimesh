@@ -6,16 +6,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JieWaZi/wikimesh/internal/cli/common"
+	"github.com/JieWaZi/wikimesh/internal/app/qmdapp"
 )
 
 func TestWorkspaceQMDConfigPathUsesCurrentWorkspace(t *testing.T) {
 	root, gotPath := workspaceQMDConfigPath()
-	if root != filepath.Dir(filepath.Dir(common.DefaultQMDConfigPath)) {
+	if root != filepath.Dir(filepath.Dir(qmdapp.DefaultConfigPath)) {
 		t.Fatalf("root = %q, want workspace .wikimesh parent", root)
 	}
-	if gotPath != common.DefaultQMDConfigPath {
-		t.Fatalf("path = %q, want %q", gotPath, common.DefaultQMDConfigPath)
+	if gotPath != qmdapp.DefaultConfigPath {
+		t.Fatalf("path = %q, want %q", gotPath, qmdapp.DefaultConfigPath)
 	}
 }
 

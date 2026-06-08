@@ -13,8 +13,14 @@ qmd 能力位于 [`pkg/qmd`](pkg/qmd/README.md)。它参考 [tobi/qmd](https://g
 
 ```text
 cmd/wikimesh                         CLI 入口，只负责构造并启动根命令
-internal/cli                         CLI 命令编排、配置加载、JSON 输出和 Wiki 页面操作
-internal/cli/init/template/docs       wikimesh init 生成的 DevWiki 工作区模板
+internal/cli                         CLI 根命令和一级命令装配
+internal/cli/wiki                    Wiki 命令组：init/read/search/glossary/repo/check
+internal/cli/qmd                     qmd 命令组：collection/update/search/query/embed/model
+internal/cli/skill                   runtime skill 安装命令
+internal/app/qmdapp                  CLI 使用 qmd SDK 的应用服务
+internal/app/wikiapp                 Wiki 项目配置、页面解析和搜索适配
+internal/app/wikiinit                wikimesh init 的工作区创建、配置登记和模板
+internal/app/skillapp                runtime skill 来源解析、发现、安装和 reference 同步
 internal/app/updateapp                自更新服务
 internal/ui                          CLI logo、中文 help、交互组件和集中 i18n 文案
 pkg/qmd                              qmd 风格检索 SDK 的公共 API
@@ -27,10 +33,12 @@ skills/devwiki                       本仓库内置的 DevWiki runtime skills
 
 核心边界：
 
-- CLI 通过 `github.com/JieWaZi/wikimesh/pkg/qmd` 使用检索能力，不直接编排 SQLite、FTS、chunk 或向量表细节。
+- `cmd/wikimesh` 只保留进程入口；命令树集中在 `internal/cli`。
+- Wiki 相关命令统一位于 `internal/cli/wiki`，其中 `init` 只做命令编排、参数归一化和交互收集，创建工作区等业务逻辑位于 `internal/app/wikiinit`。
+- CLI 通过 `internal/app/qmdapp` 和 `github.com/JieWaZi/wikimesh/pkg/qmd` 使用检索能力，不直接编排 SQLite、FTS、chunk 或向量表细节。
 - `pkg/qmd/embed`、`pkg/qmd/extract`、`pkg/qmd/index`、`pkg/qmd/llamaruntime` 是 qmd 底层组件包，不反向依赖 `pkg/qmd` 的 SDK 门面。
 - SDK 的公开 API 不暴露 SQLite、FTS、chunk、向量表或本地模型运行时的内部类型。
-- 根目录 `internal` 保留应用层私有代码；可被外部复用的检索 API 放在 `pkg/qmd`。
+- 根目录 `internal` 保留 CLI 和应用层私有代码；可被外部复用的检索 API 放在 `pkg/qmd`。
 - CLI 用户可见文案集中在 `internal/ui`，命令实现不直接散落展示字符串。
 
 ## 能力概览
@@ -58,7 +66,7 @@ flowchart LR
 
 Wikimesh 当前支持：
 
-- 初始化 Wikimesh/DevWiki 工作区，生成 `raw/`、`wiki/`、`config/`、`.wikimesh/qmd.yaml` 和目标 agent 的运行时入口文件。
+- 初始化 Wikimesh/DevWiki 工作区，生成 `raw/`、`wiki/`、`.wikimesh/qmd.yaml` 和目标 agent 的运行时入口文件。
 - 安装本仓库内置 runtime skills；当前内置 Wiki 类型是 `devwiki`，面向软件工程知识库。
 - 读取和搜索 `topic` / `workflow` 页面视图，并校验一等知识页面的 `card`、`core`、`explain` section。
 - 管理项目来源：登记本地或远端 Wiki 项目、关联代码仓、切换当前激活来源、输出来源配置。
@@ -121,20 +129,24 @@ make build
 wikimesh init "My Project" --agent codex --code-dir . --yes
 ```
 
-初始化会在当前目录创建工作区文件，并把项目级 runtime 目录写入 `.gitignore`。常见目录如下：
+初始化会在当前目录下按项目名 slug 创建工作区目录，并把项目级 runtime 目录写入该工作区的 `.gitignore`。项目信息写入用户级 Wikimesh 配置目录，不再在文档库内生成 `config/project.yaml`。常见目录如下：
 
 ```text
-./
+./my-project/
 ├── README.md
 ├── AGENTS.md 或 CLAUDE.md
-├── config/
-│   └── project.yaml
 ├── raw/
+│   ├── requirements/
+│   ├── designs/
+│   ├── features/
+│   └── tests/
 ├── wiki/
 │   ├── index.md
 │   ├── glossary.md
+│   ├── log.md
 │   ├── topics/
 │   ├── workflows/
+│   ├── troubleshooting/
 │   └── outputs/
 └── .wikimesh/
     └── qmd.yaml
@@ -145,6 +157,7 @@ wikimesh init "My Project" --agent codex --code-dir . --yes
 ```sh
 wikimesh repo add "My Project" .
 wikimesh repo link "My Project" app .
+wikimesh repo use "My Project" local
 wikimesh repo info
 wikimesh repo info "My Project"
 ```
@@ -285,6 +298,7 @@ wikimesh qmd model lib install        安装 llama.cpp 运行时库
 wikimesh --help
 wikimesh qmd --help
 wikimesh qmd query --help
+wikimesh repo --help
 ```
 
 ## 开发验证

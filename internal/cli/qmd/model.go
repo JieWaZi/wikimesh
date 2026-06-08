@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/JieWaZi/wikimesh/internal/cli/common"
+	"github.com/JieWaZi/wikimesh/internal/app/qmdapp"
 	"github.com/JieWaZi/wikimesh/internal/ui"
 	qmd "github.com/JieWaZi/wikimesh/pkg/qmd"
 )
@@ -41,14 +41,14 @@ func newModelDownloadCommand() *cobra.Command {
 			if len(args) > 0 {
 				target = args[0]
 			}
-			return runModelDownload(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), common.DefaultQMDConfigPath, target)
+			return runModelDownload(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), qmdapp.DefaultConfigPath, target)
 		},
 	}
 }
 
 // runModelDownload 下载配置中声明的 qmd 模型文件。
 func runModelDownload(ctx context.Context, out, errOut io.Writer, configPath string, target string) error {
-	cfg, err := common.LoadQMDConfig(configPath)
+	cfg, err := qmdapp.LoadConfig(configPath)
 	if err != nil {
 		return err
 	}

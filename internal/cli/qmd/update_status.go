@@ -9,7 +9,7 @@ import (
 	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 
-	"github.com/JieWaZi/wikimesh/internal/cli/common"
+	"github.com/JieWaZi/wikimesh/internal/app/qmdapp"
 	"github.com/JieWaZi/wikimesh/internal/ui"
 	"github.com/JieWaZi/wikimesh/pkg/qmd"
 )
@@ -51,14 +51,14 @@ func newUpdateCommand() *cobra.Command {
 
 // runQMDUpdate 刷新当前工作区内一个或多个 qmd 集合索引。
 func runQMDUpdate(ctx context.Context, out, errOut io.Writer, configPath string, opts qmdUpdateOptions) error {
-	cfg, err := common.LoadQMDConfig(configPath)
+	cfg, err := qmdapp.LoadConfig(configPath)
 	if err != nil {
 		return err
 	}
 	if root, ok := qmdConfigRoot(configPath); ok {
 		absolutizeQMDConfig(root, &cfg)
 	}
-	store, err := common.OpenQMDStoreFromConfig(ctx, cfg)
+	store, err := qmdapp.OpenStoreFromConfig(ctx, cfg)
 	if err != nil {
 		return err
 	}
@@ -122,14 +122,14 @@ func runQMDUpdate(ctx context.Context, out, errOut io.Writer, configPath string,
 
 // runQMDStatus 输出当前工作区 qmd 索引和集合状态。
 func runQMDStatus(ctx context.Context, out io.Writer, configPath string) error {
-	cfg, err := common.LoadQMDConfig(configPath)
+	cfg, err := qmdapp.LoadConfig(configPath)
 	if err != nil {
 		return err
 	}
 	if root, ok := qmdConfigRoot(configPath); ok {
 		absolutizeQMDConfig(root, &cfg)
 	}
-	store, err := common.OpenQMDStoreFromConfig(ctx, cfg)
+	store, err := qmdapp.OpenStoreFromConfig(ctx, cfg)
 	if err != nil {
 		return err
 	}
