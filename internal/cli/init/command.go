@@ -98,7 +98,7 @@ func NewCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&opts.Agent, "agent", "codex", msg.FlagAgent)
-	cmd.Flags().StringVar(&opts.WikiType, "type", common.DefaultWikiSkillType(), msg.FlagWikiType)
+	cmd.Flags().StringVar(&opts.WikiType, "type", "", msg.FlagWikiType)
 	cmd.Flags().StringSliceVar(&opts.CodeDirs, "code-dir", nil, msg.FlagCodeDir)
 	cmd.Flags().StringVar(&opts.Mode, "mode", "", msg.FlagWikiInitMode)
 	cmd.Flags().StringVar(&opts.SourceType, "source", "", msg.FlagWikiRepoSource)
@@ -127,15 +127,14 @@ func runWikiInit(ctx context.Context, out io.Writer, interactive bool, opts Init
 	if resolved.Mode == InitModeLink {
 		return runWikiInitLink(out, interactive, resolved)
 	}
-	selectedSkills, err := selectedWikiInitSkills(&resolved, interactive)
+	selectedSkills, cleanupSkills, err := selectedWikiInitSkills(&resolved, interactive)
 	if err != nil {
 		return err
 	}
-	targetDir, err := os.Getwd()
-	if err != nil {
-		return err
+	if cleanupSkills != nil {
+		defer func() { _ = cleanupSkills() }()
 	}
-	targetDir, err = filepath.Abs(targetDir)
+	targetDir, err := wikiInitCreateTargetDir(resolved.ProjectName)
 	if err != nil {
 		return err
 	}
@@ -161,7 +160,7 @@ func runWikiInit(ctx context.Context, out io.Writer, interactive bool, opts Init
 
 	if len(selectedSkills) > 0 {
 		spinner.Start(msg.StepInstallingWikiSkills)
-		if err := installWikiSkillsForAgents(resolved.Agents, resolved.Global, selectedSkills); err != nil {
+		if err := installWikiSkillsForAgentsInProject(targetDir, resolved.Agents, resolved.Global, selectedSkills); err != nil {
 			return err
 		}
 		spinner.Stop(fmt.Sprintf(msg.WikiInstalledSkillsFmt, resolved.WikiType, len(selectedSkills)))
@@ -180,11 +179,27 @@ func runWikiInit(ctx context.Context, out io.Writer, interactive bool, opts Init
 	return nil
 }
 
+// wikiInitCreateTargetDir 用项目 slug 作为新建文档库目录名。
+func wikiInitCreateTargetDir(projectName string) (string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	slug := common.WikiSlug(projectName)
+	if slug == "" {
+		return "", errors.New(ui.Messages().ErrorProjectRequired)
+	}
+	return filepath.Abs(filepath.Join(cwd, slug))
+}
+
 // runWikiInitLink 只登记已有文档库来源和可选代码库，不创建当前目录工作区。
 func runWikiInitLink(out io.Writer, interactive bool, opts InitOptions) error {
-	selectedSkills, err := selectedWikiInitSkills(&opts, interactive)
+	selectedSkills, cleanupSkills, err := selectedWikiInitSkills(&opts, interactive)
 	if err != nil {
 		return err
+	}
+	if cleanupSkills != nil {
+		defer func() { _ = cleanupSkills() }()
 	}
 	if err := saveLinkedWikiRepoConfig(opts); err != nil {
 		return err
@@ -203,7 +218,7 @@ func runWikiInitLink(out io.Writer, interactive bool, opts InitOptions) error {
 }
 
 // selectedWikiInitSkills 解析并按交互选择过滤 Wikimesh runtime skills。
-func selectedWikiInitSkills(opts *InitOptions, interactive bool) ([]common.WikiSkill, error) {
+func selectedWikiInitSkills(opts *InitOptions, interactive bool) ([]common.WikiSkill, func() error, error) {
 	if strings.TrimSpace(opts.WikiType) == "" && interactive {
 		items := make([]ui.Option, 0, len(common.BuiltinWikiSkillTypes()))
 		for _, typ := range common.BuiltinWikiSkillTypes() {
@@ -214,24 +229,39 @@ func selectedWikiInitSkills(opts *InitOptions, interactive bool) ([]common.WikiS
 			Items:   items,
 		})
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if cancelled {
-			return nil, errors.New(ui.Messages().Cancelled)
+			return nil, nil, errors.New(ui.Messages().Cancelled)
 		}
 		opts.WikiType = value
 	}
 	if strings.TrimSpace(opts.WikiType) == "" {
 		opts.WikiType = common.DefaultWikiSkillType()
 	}
+	source := common.NewWikimeshSkillsSource(opts.WikiType, "")
+	ui.Step(fmt.Sprintf(ui.Messages().StepFetchingWikiSkillsFmt, wikiSkillSourceDisplay(source)))
 	bundle, err := common.ResolveWikimeshSkills(opts.WikiType, "")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	if bundle.Cleanup != nil {
-		defer func() { _ = bundle.Cleanup() }()
+	selected, err := resolveSelectedWikiSkills(bundle.Skills, *opts, interactive)
+	if err != nil {
+		if bundle.Cleanup != nil {
+			_ = bundle.Cleanup()
+		}
+		return nil, nil, err
 	}
-	return resolveSelectedWikiSkills(bundle.Skills, *opts, interactive)
+	return selected, bundle.Cleanup, nil
+}
+
+// wikiSkillSourceDisplay 将 skill 来源转成用户可直接访问的展示地址。
+func wikiSkillSourceDisplay(source common.WikiSkillSource) string {
+	repo := strings.TrimSuffix(source.RepoURL, ".git")
+	if source.Ref == "" || source.Subpath == "" {
+		return source.Original
+	}
+	return fmt.Sprintf("%s/tree/%s/%s", repo, source.Ref, source.Subpath)
 }
 
 func installWikiSkillsForAgents(agents []string, global bool, skills []common.WikiSkill) error {
@@ -244,6 +274,41 @@ func installWikiSkillsForAgents(agents []string, global bool, skills []common.Wi
 		}
 	}
 	return nil
+}
+
+func installWikiSkillsForAgentsInProject(projectRoot string, agents []string, global bool, skills []common.WikiSkill) error {
+	if len(skills) == 0 {
+		return nil
+	}
+	if global {
+		return installWikiSkillsForAgents(agents, true, skills)
+	}
+	for _, agent := range agents {
+		targetRoot, err := wikiSkillTargetRootInProject(projectRoot, agent)
+		if err != nil {
+			return err
+		}
+		for _, skill := range skills {
+			if err := common.CopyDir(skill.Dir, filepath.Join(targetRoot, skill.Name)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// wikiSkillTargetRootInProject 返回 init 新建文档库内的项目级 skill 安装目录。
+func wikiSkillTargetRootInProject(projectRoot string, agent string) (string, error) {
+	switch agent {
+	case "", "codex":
+		return filepath.Join(projectRoot, ".agents", "skills"), nil
+	case "cursor":
+		return filepath.Join(projectRoot, ".cursor", "skills"), nil
+	case "claude":
+		return filepath.Join(projectRoot, ".claude", "skills"), nil
+	default:
+		return "", fmt.Errorf(ui.Messages().ErrorUnsupportedAgentFmt, agent)
+	}
 }
 
 // wikiInitCodeReposFromOptions 为显式代码仓或 code-dir 参数生成稳定关联条目。
@@ -272,7 +337,7 @@ func ensureWikiGitignore(projectRoot string, opts InitOptions) error {
 	}
 	paths := []string{filepath.Join(projectRoot, ".wikimesh")}
 	for _, agent := range opts.Agents {
-		installDir, err := common.WikiSkillTargetRoot(agent, false)
+		installDir, err := wikiSkillTargetRootInProject(projectRoot, agent)
 		if err != nil {
 			return err
 		}
@@ -444,19 +509,12 @@ func saveWikiInitRepoConfig(targetDir string, opts InitOptions) error {
 	cfg.ActiveSource = common.WikiRepoSourceLocal
 	cfg.Sources.Local = &common.WikiRepoSource{Type: common.WikiRepoSourceLocal, Path: targetDir}
 	cfg.CodeRepos = nil
-	seenRepos := map[string]int{}
-	for _, dir := range opts.CodeDirs {
-		name := filepath.Base(dir)
-		baseSlug := common.WikiSlug(name)
-		seenRepos[baseSlug]++
-		repoSlug := baseSlug
-		if seenRepos[baseSlug] > 1 {
-			repoSlug = fmt.Sprintf("%s-%d", baseSlug, seenRepos[baseSlug])
-		}
+	for _, repo := range wikiInitCodeReposFromOptions(opts) {
+		name := filepath.Base(repo.Path)
 		cfg.CodeRepos = append(cfg.CodeRepos, common.WikiCodeRepo{
 			Name:    name,
-			Slug:    repoSlug,
-			Path:    dir,
+			Slug:    repo.Slug,
+			Path:    repo.Path,
 			Default: len(cfg.CodeRepos) == 0,
 		})
 	}
@@ -719,7 +777,7 @@ func normalizeWikiInitCodeRepos(rawRepos []InitCodeRepo) ([]InitCodeRepo, error)
 func createWikiWorkspace(ctx context.Context, targetDir string, opts InitOptions) error {
 	projectName := opts.ProjectName
 
-	// 创建 Wikimesh 固定目录，保持 raw/wiki/config 三层边界清晰。
+	// 创建 Wikimesh 固定目录，保持 raw/wiki 两层边界清晰。
 	for _, dir := range []string{
 		"raw/requirements",
 		"raw/designs",
@@ -729,13 +787,12 @@ func createWikiWorkspace(ctx context.Context, targetDir string, opts InitOptions
 		"wiki/workflows",
 		"wiki/troubleshooting",
 		"wiki/outputs",
-		"config",
 	} {
 		if err := os.MkdirAll(filepath.Join(targetDir, dir), 0o755); err != nil {
 			return err
 		}
 	}
-	// 写入基础导航文件和项目配置；已有文件不覆盖，避免破坏用户内容。
+	// 写入基础导航文件；已有文件不覆盖，避免破坏用户内容。
 	slug := common.WikiSlug(projectName)
 	if err := writeFileIfMissing(filepath.Join(targetDir, "wiki/index.md"), "# Wiki Index\n\n| type | description | slug |\n|---|---|---|\n"); err != nil {
 		return err
@@ -744,10 +801,6 @@ func createWikiWorkspace(ctx context.Context, targetDir string, opts InitOptions
 		return err
 	}
 	if err := writeFileIfMissing(filepath.Join(targetDir, "wiki/log.md"), "# Wiki Log\n\n> Append-only chronological log.\n"); err != nil {
-		return err
-	}
-	projectConfig := fmt.Sprintf("project_name: %s\nproject_slug: %s\nwiki_type: %s\nagents: [%s]\nlanguage: zh\n", projectName, slug, opts.WikiType, strings.Join(opts.Agents, ", "))
-	if err := writeFileIfMissing(filepath.Join(targetDir, "config/project.yaml"), projectConfig); err != nil {
 		return err
 	}
 	templateValues := map[string]string{

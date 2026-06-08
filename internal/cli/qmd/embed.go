@@ -14,7 +14,6 @@ import (
 )
 
 type embedCLIOptions struct {
-	project     string
 	collections []string
 	provider    string
 	model       string
@@ -31,15 +30,11 @@ func newEmbedCommand() *cobra.Command {
 		Short: msg.EmbedShort,
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, configPath, err := resolveProjectQMDConfigPath(opts.project)
-			if err != nil {
-				return err
-			}
+			_, configPath := workspaceQMDConfigPath()
 			return runEmbed(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), configPath, opts)
 		},
 	}
 	cmd.Flags().BoolVarP(&opts.force, "force", "f", false, msg.FlagForce)
-	cmd.Flags().StringVar(&opts.project, "project", "", msg.FlagProject)
 	cmd.Flags().StringArrayVarP(&opts.collections, "collection", "c", nil, msg.FlagCollectionFilter)
 	cmd.Flags().StringVar(&opts.provider, "provider", "", msg.FlagProvider)
 	cmd.Flags().StringVar(&opts.model, "model", "", msg.FlagModel)

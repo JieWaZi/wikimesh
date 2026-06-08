@@ -13,7 +13,6 @@ import (
 
 type searchOptions struct {
 	Stdout      io.Writer
-	Project     string
 	Collections []string
 	Query       string
 	Limit       int
@@ -38,7 +37,7 @@ func newSearchCommand(vector bool) *cobra.Command {
 		Short: short,
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			store, _, _, err := openStoreForProject(cmd.Context(), opts.Project)
+			store, _, _, err := openWorkspaceStore(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -51,7 +50,6 @@ func newSearchCommand(vector bool) *cobra.Command {
 	cmd.Flags().IntVarP(&opts.Limit, "limit", "n", 20, msg.FlagLimit)
 	cmd.Flags().BoolVar(&opts.All, "all", false, msg.FlagAll)
 	cmd.Flags().Float64Var(&opts.MinScore, "min-score", 0, msg.FlagMinScore)
-	cmd.Flags().StringVar(&opts.Project, "project", "", msg.FlagProject)
 	cmd.Flags().StringArrayVarP(&opts.Collections, "collection", "c", nil, msg.FlagCollectionFilter)
 	if vector {
 		cmd.Flags().BoolVar(&opts.RawVector, "raw", false, msg.FlagRawVector)

@@ -17,6 +17,8 @@ func NewCommand() *cobra.Command {
 		},
 	}
 	cmd.AddCommand(newCollectionCommand())
+	cmd.AddCommand(newStatusCommand())
+	cmd.AddCommand(newUpdateCommand())
 	cmd.AddCommand(newSearchCommand(false))
 	cmd.AddCommand(newSearchCommand(true))
 	cmd.AddCommand(newQueryCommand())

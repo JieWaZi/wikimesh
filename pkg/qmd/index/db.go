@@ -16,6 +16,7 @@ import (
 // 设计成“一条写连接 + 一个读连接池”：写入统一走 WriteTx 串行化，
 // 读取走只读连接池。配合 WAL 模式后，查询和索引写入不容易互相阻塞。
 type DB struct {
+	path      string     // path 是当前 SQLite 数据库路径，用于状态输出。
 	write     *sql.DB    // write 是唯一写连接，所有写事务都通过它执行。
 	read      *sql.DB    // read 是只读连接池，供 Search/VSearch/Query 使用。
 	writeMu   sync.Mutex // writeMu 保证任意时刻只有一个写事务。
@@ -67,7 +68,7 @@ func Open(path string) (*DB, error) {
 		}
 	}
 
-	db := &DB{write: writeDB, read: readDB}
+	db := &DB{path: path, write: writeDB, read: readDB}
 	if err := db.migrate(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("index.Open: migrate: %w", err)
@@ -84,6 +85,14 @@ func (db *DB) WriteDB() *sql.DB {
 // ReadDB 返回只读连接池。
 func (db *DB) ReadDB() *sql.DB {
 	return db.read
+}
+
+// Path 返回当前数据库路径。
+func (db *DB) Path() string {
+	if db == nil {
+		return ""
+	}
+	return db.path
 }
 
 // WriteTx 在串行事务中执行 fn。

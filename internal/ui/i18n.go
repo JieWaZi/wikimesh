@@ -16,6 +16,10 @@ type Catalog struct {
 	CollectionRemoveShort string
 	// CollectionUpdateShort 是 collection update 命令说明。
 	CollectionUpdateShort string
+	// QMDStatusShort 是 qmd status 命令说明。
+	QMDStatusShort string
+	// QMDUpdateShort 是 qmd update 命令说明。
+	QMDUpdateShort string
 	// SearchShort 是 qmd search 命令说明。
 	SearchShort string
 	// VSearchShort 是 qmd vsearch 命令说明。
@@ -118,7 +122,7 @@ type Catalog struct {
 	ProjectLabel string
 	// WikiTypeLabel 是 skill 类型摘要字段展示名。
 	WikiTypeLabel string
-	// SourceLabel 是来源目录摘要字段展示名。
+	// SourceLabel 是文档库目录摘要字段展示名。
 	SourceLabel string
 	// AgentLabel 是 agent 摘要字段展示名。
 	AgentLabel string
@@ -148,10 +152,12 @@ type Catalog struct {
 	WikiRepoLinkAnotherLabel string
 	// WikiRepoFinishLabel 是结束关联代码库选项文案。
 	WikiRepoFinishLabel string
-	// StepCreatingWikiProject 是创建 Wikimesh 工作区步骤文案。
+	// StepCreatingWikiProject 是创建 Wikimesh 文档库步骤文案。
 	StepCreatingWikiProject string
 	// StepInstallingWikiSkills 是安装 Wikimesh skills 步骤文案。
 	StepInstallingWikiSkills string
+	// StepFetchingWikiSkillsFmt 是获取 Wikimesh skills 来源提示模板。
+	StepFetchingWikiSkillsFmt string
 	// CreatedFmt 是创建完成步骤文案模板。
 	CreatedFmt string
 	// WikiInstalledSkillsFmt 是 Wikimesh skill 安装完成文案模板。
@@ -238,6 +244,8 @@ type Catalog struct {
 	FlagOS string
 	// FlagUpgrade 是 upgrade 参数说明。
 	FlagUpgrade string
+	// FlagPull 是 pull 参数说明。
+	FlagPull string
 	// HelpUsage 是 help 的用法标题。
 	HelpUsage string
 	// HelpAvailableCommands 是 help 的子命令标题。
@@ -248,7 +256,7 @@ type Catalog struct {
 	HelpGlobalFlags string
 	// HelpMoreInfoFmt 是 help 的更多信息提示模板。
 	HelpMoreInfoFmt string
-	// OutputWikiCreatedFmt 是 init 创建工作区后的状态输出模板。
+	// OutputWikiCreatedFmt 是 init 创建文档库后的状态输出模板。
 	OutputWikiCreatedFmt string
 	// OutputWikiRepoRootFmt 是 repo init 的配置目录输出模板。
 	OutputWikiRepoRootFmt string
@@ -272,8 +280,26 @@ type Catalog struct {
 	OutputWikiUpdateDeferredFmt string
 	// OutputQMDCollectionFmt 是 qmd collection update 的集合标题输出模板。
 	OutputQMDCollectionFmt string
+	// OutputQMDUpdateStartFmt 是 qmd update 的集合数量输出模板。
+	OutputQMDUpdateStartFmt string
+	// OutputQMDUpdateDone 是 qmd update 完成提示。
+	OutputQMDUpdateDone string
 	// OutputQMDIndexedFmt 是 qmd collection update 的索引统计输出模板。
 	OutputQMDIndexedFmt string
+	// OutputQMDStatusTitle 是 qmd status 标题。
+	OutputQMDStatusTitle string
+	// OutputQMDStatusIndexFmt 是 qmd status 索引路径输出模板。
+	OutputQMDStatusIndexFmt string
+	// OutputQMDStatusDocumentsFmt 是 qmd status 文档统计输出模板。
+	OutputQMDStatusDocumentsFmt string
+	// OutputQMDStatusPendingFmt 是 qmd status 待向量化统计输出模板。
+	OutputQMDStatusPendingFmt string
+	// OutputQMDStatusCollections 是 qmd status 集合标题。
+	OutputQMDStatusCollections string
+	// OutputQMDStatusCollectionFmt 是 qmd status 单集合输出模板。
+	OutputQMDStatusCollectionFmt string
+	// OutputQMDStatusCollectionContextFmt 是 qmd status 集合上下文输出模板。
+	OutputQMDStatusCollectionContextFmt string
 	// OutputQMDEmbedHint 是索引变化后的 embedding 提示。
 	OutputQMDEmbedHint string
 	// OutputQMDNoCollections 是 embed 未发现集合时的提示。
@@ -319,163 +345,176 @@ type Catalog struct {
 }
 
 var defaultCatalog = Catalog{
-	RootShort:                         "Wikimesh 知识库命令行",
-	QMDShort:                          "管理 qmd 文档集合、索引和检索",
-	CollectionShort:                   "管理已索引的文档集合",
-	CollectionAddShort:                "添加文档集合",
-	CollectionListShort:               "列出文档集合",
-	CollectionRemoveShort:             "移除文档集合",
-	CollectionUpdateShort:             "刷新文档集合索引",
-	SearchShort:                       "搜索默认文档集合",
-	VSearchShort:                      "向量搜索默认文档集合",
-	QueryShort:                        "对默认文档集合执行混合查询",
-	EmbedShort:                        "为已索引文档生成向量",
-	ModelShort:                        "管理本地 GGUF 模型",
-	ModelDownloadShort:                "下载配置中的模型到 .wikimesh/models",
-	ModelLibShort:                     "管理 llama.cpp 运行时库",
-	ModelLibInstallShort:              "安装 yzma llama.cpp 运行时库到 .wikimesh/lib",
-	WikiInitShort:                     "初始化 Wikimesh 工作区",
-	WikiUpdateShort:                   "更新当前 Wikimesh 可执行文件",
-	WikiReadShort:                     "读取 Wikimesh 页面视图",
-	WikiSearchShort:                   "搜索 Wikimesh 知识库",
-	WikiGlossaryShort:                 "查看 Wikimesh 术语表",
-	WikiGlossaryKeywordsShort:         "列出 Wikimesh 术语关键词",
-	WikiRepoShort:                     "管理 Wikimesh 项目来源",
-	WikiRepoInitShort:                 "初始化 Wikimesh 项目来源配置目录",
-	WikiRepoAddShort:                  "添加 Wikimesh 项目来源",
-	WikiRepoLinkShort:                 "关联代码仓到 Wikimesh 项目",
-	WikiRepoUseShort:                  "选择 Wikimesh 项目来源",
-	WikiRepoInfoShort:                 "查看 Wikimesh 项目来源信息",
-	WikiSkillShort:                    "管理 Wikimesh runtime skills",
-	WikiSkillInstallShort:             "安装 Wikimesh runtime skills",
-	WikiSkillRefsShort:                "维护 Wikimesh skill 引用",
-	WikiSkillRefsSyncShort:            "同步 Wikimesh skill 共享引用",
-	WikiCheckShort:                    "校验 Wikimesh 文档",
-	FlagAgent:                         "目标 Agent：codex、cursor、claude",
-	FlagCodeDir:                       "代码仓目录，可重复传入多个目录",
-	FlagYes:                           "跳过交互确认",
-	FlagGlobal:                        "安装到主目录而不是当前项目",
-	FlagWikiType:                      "Skill 类型，例如 devwiki",
-	FlagWikiInitMode:                  "初始化方式：create 新建文档库，link 关联文档库",
-	FlagWikiRepoSource:                "关联文档库来源：local、remote",
-	FlagPath:                          "本地文档库路径",
-	PromptWikiProjectName:             "Wikimesh 项目名称",
-	PromptWikiInitMode:                "选择文档库初始化方式",
-	PromptWikiType:                    "选择 Skill 类型",
-	PromptWikiAgent:                   "选择 Wikimesh runtime（可多选）",
-	PromptWikiCodeDirs:                "代码目录（逗号分隔，可留空）",
-	PromptWikiRepoSource:              "选择文档库来源",
-	PromptWikiRepoLocalPath:           "本地文档库路径",
-	PromptWikiRepoRemoteURL:           "远端文档库 URL",
-	PromptWikiRepoLinkCode:            "关联代码库？",
-	PromptWikiRepoLinkMore:            "继续关联代码库？",
-	PromptWikiRepoCodeName:            "代码库标识",
-	PromptWikiRepoCodePath:            "代码库路径",
-	PromptWikiScope:                   "选择 Wikimesh skill 安装范围",
-	PromptSelectWikiSkills:            "选择要安装的 Wikimesh skills",
-	TitleWikiSummary:                  "Wikimesh 初始化摘要",
-	TitleQMDManualDownload:            "QMD 模型下载",
-	ProjectLabel:                      "项目级",
-	WikiTypeLabel:                     "Skill 类型",
-	SourceLabel:                       "来源",
-	AgentLabel:                        "Agent",
-	WikiCodeDirsLabel:                 "代码目录",
-	ScopeLabel:                        "范围",
-	GlobalLabel:                       "全局级",
-	InstallInProject:                  "安装到当前项目",
-	InstallInHome:                     "安装到主目录",
-	WikiInitModeCreateLabel:           "新建文档库",
-	WikiInitModeLinkLabel:             "关联文档库",
-	WikiRepoSourceLocalLabel:          "本地文档库",
-	WikiRepoSourceRemoteLabel:         "远端文档库",
-	WikiRepoLinkCodeLabel:             "关联代码库",
-	WikiRepoContinueLabel:             "暂不关联",
-	WikiRepoLinkAnotherLabel:          "继续关联",
-	WikiRepoFinishLabel:               "完成",
-	StepCreatingWikiProject:           "创建 Wikimesh 工作区",
-	StepInstallingWikiSkills:          "安装 Wikimesh runtime skills",
-	CreatedFmt:                        "已创建 %s",
-	WikiInstalledSkillsFmt:            "已安装 %s 的 %d 个 Wikimesh skills",
-	QMDManualDownloadHint:             "如需手动下载 QMD models，请进入新建的 Wikimesh 工作区后执行：",
-	QMDManualDownloadCommand:          "wikimesh qmd model download all",
-	Done:                              "完成！",
-	Cancelled:                         "已取消",
-	NoMatchesFound:                    "没有匹配项",
-	SearchLabel:                       "搜索",
-	SelectedLabel:                     "已选择",
-	SelectedNone:                      "无",
-	MoreSelectedFmt:                   "%s 等 %d 项",
-	AlwaysIncludedSuffix:              "始终包含",
-	MultiSelectHelp:                   "输入筛选，空格选择，回车确认，Esc 取消",
-	SingleSelectHelp:                  "上下选择，回车确认，Esc 取消",
-	FlagRoot:                          "Wikimesh 工作区根目录",
-	FlagProject:                       "Wikimesh 项目名称或 slug；设置后按用户级项目配置解析本地工作区",
-	FlagView:                          "页面视图：card、core、explain",
-	FlagFormat:                        "输出格式",
-	FlagRemote:                        "远端 Wikimesh API 地址",
-	FlagCollectionName:                "文档集合名称",
-	FlagCollectionPath:                "文档集合根目录",
-	FlagCollectionMask:                "glob 匹配规则",
-	FlagCollectionInclude:             "逗号分隔的 include glob 列表",
-	FlagLimit:                         "最大返回数量",
-	FlagAll:                           "返回全部搜索结果",
-	FlagMinScore:                      "最低分数阈值",
-	FlagCollectionFilter:              "文档集合过滤，可重复传入多个集合",
-	FlagRawVector:                     "使用原始向量搜索，不执行查询扩展",
-	FlagQueries:                       "预扩展查询 JSON",
-	FlagIntent:                        "领域意图提示",
-	FlagCandidateLimit:                "重排前最大候选数量",
-	FlagExplain:                       "输出 RRF/重排解释信息",
-	FlagNoRerank:                      "跳过 reranker，返回 RRF 位置分",
-	FlagForce:                         "重建已有向量",
-	FlagProvider:                      "覆盖 embedding provider",
-	FlagModel:                         "覆盖 embedding 模型",
-	FlagCommand:                       "覆盖 embedding 命令",
-	FlagDimensions:                    "覆盖 embedding 维度",
-	FlagLibPath:                       "llama.cpp 运行时库目录",
-	FlagProcessor:                     "处理器类型：auto、cpu、metal、cuda、vulkan、rocm",
-	FlagVersion:                       "llama.cpp release 版本",
-	FlagOS:                            "运行时系统：linux、darwin、windows、bookworm、trixie",
-	FlagUpgrade:                       "即使运行时库已存在也重新下载",
-	HelpUsage:                         "用法",
-	HelpAvailableCommands:             "可用命令",
-	HelpFlags:                         "参数",
-	HelpGlobalFlags:                   "全局参数",
-	HelpMoreInfoFmt:                   "使用 \"%s --help\" 查看更多信息。",
-	OutputWikiCreatedFmt:              "已创建 Wikimesh 工作区：%s\n",
-	OutputWikiRepoRootFmt:             "Wikimesh 项目来源配置目录：%s\n",
-	OutputWikiRepoSavedFmt:            "已保存 Wikimesh 项目：%s\n",
-	OutputWikiRepoLinkedFmt:           "已关联代码仓：%s\n",
-	OutputWikiRepoActiveFmt:           "当前来源：%s\n",
-	OutputWikiRefsFmt:                 "Wikimesh skill 引用%s完成\n",
-	OutputWikiSkillsInstalledFmt:      "已为 %s 安装 %s 的 %d 个 Wikimesh skill\n",
-	OutputWikiCheckIssueFmt:           "错误 %s\n",
-	OutputWikiCheckPassedFmt:          "Wikimesh 文档校验通过（%d 个文件）\n",
-	OutputWikiUpdateDoneFmt:           "%s完成%s 已更新 %s -> %s\n",
-	OutputWikiUpdateDeferredFmt:       "%s完成%s 已下载 %s，退出当前进程后会替换 %s；请重新打开终端。\n",
-	OutputQMDCollectionFmt:            "集合：%s\n",
-	OutputQMDIndexedFmt:               "索引：%d 个新增/更新，%d 个未变化，%d 个已移除\n",
-	OutputQMDEmbedHint:                "\n运行 'wikimesh qmd embed' 更新向量\n",
-	OutputQMDNoCollections:            "未发现集合。请先运行 'wikimesh qmd collection add .' 索引 Markdown 文件。",
-	OutputQMDModelFmt:                 "模型：%s\n\n",
-	OutputQMDEmbeddedFmt:              "向量：%d 个 chunk，%d 个文档已检查，%d 个未变化\n\n",
-	OutputQMDEmbeddedTotalFmt:         "向量：%d 个 chunk 总计，%d 个文档已检查，%d 个未变化\n",
-	OutputQMDEmbedDone:                "全部向量已更新。\n",
-	OutputQMDDownloadingFmt:           "正在下载：%s -> %s\n",
-	OutputQMDDownloadedFmt:            "已下载：%s -> %s\n",
-	OutputQMDExistsFmt:                "已存在：%s\n",
-	OutputQMDInstallingLibFmt:         "正在安装 llama.cpp：processor=%s version=%s -> %s\n",
-	OutputQMDInstalledFmt:             "已安装：%s\n",
-	ErrorUnsupportedInitModeFmt:       "不支持的初始化方式：%q",
-	ErrorProjectRequired:              "项目名称不能为空",
-	ErrorUnsupportedAgentFmt:          "不支持的 Agent：%q",
-	ErrorUnsupportedWikiSourceFmt:     "不支持的文档库来源：%q",
-	ErrorLocalWikiSourcePathRequired:  "本地文档库路径不能为空",
-	ErrorLocalWikiSourcePathNotDirFmt: "本地文档库路径不是目录：%q",
-	ErrorRemoteWikiSourceURLRequired:  "远端文档库 URL 不能为空",
-	ErrorCodeRepoSlugRequired:         "代码库标识不能为空",
-	ErrorCodeRepoPathRequired:         "代码库路径不能为空",
-	ErrorCodeDirNotDirFmt:             "代码库路径不是目录：%q",
+	RootShort:                           "Wikimesh 知识库命令行",
+	QMDShort:                            "管理 qmd 文档集合、索引和检索",
+	CollectionShort:                     "管理已索引的文档集合",
+	CollectionAddShort:                  "添加文档集合",
+	CollectionListShort:                 "列出文档集合",
+	CollectionRemoveShort:               "移除文档集合",
+	CollectionUpdateShort:               "刷新文档集合索引",
+	QMDStatusShort:                      "查看 qmd 索引和集合状态",
+	QMDUpdateShort:                      "刷新所有 qmd 集合索引",
+	SearchShort:                         "搜索默认文档集合",
+	VSearchShort:                        "向量搜索默认文档集合",
+	QueryShort:                          "对默认文档集合执行混合查询",
+	EmbedShort:                          "为已索引文档生成向量",
+	ModelShort:                          "管理本地 GGUF 模型",
+	ModelDownloadShort:                  "下载配置中的模型到 .wikimesh/models",
+	ModelLibShort:                       "管理 llama.cpp 运行时库",
+	ModelLibInstallShort:                "安装 yzma llama.cpp 运行时库到 .wikimesh/lib",
+	WikiInitShort:                       "初始化 Wikimesh 工作区",
+	WikiUpdateShort:                     "更新当前 Wikimesh 可执行文件",
+	WikiReadShort:                       "读取 Wikimesh 页面视图",
+	WikiSearchShort:                     "搜索 Wikimesh 知识库",
+	WikiGlossaryShort:                   "查看 Wikimesh 术语表",
+	WikiGlossaryKeywordsShort:           "列出 Wikimesh 术语关键词",
+	WikiRepoShort:                       "管理 Wikimesh 项目来源",
+	WikiRepoInitShort:                   "初始化 Wikimesh 项目来源配置目录",
+	WikiRepoAddShort:                    "添加 Wikimesh 项目来源",
+	WikiRepoLinkShort:                   "关联代码仓到 Wikimesh 项目",
+	WikiRepoUseShort:                    "选择 Wikimesh 项目来源",
+	WikiRepoInfoShort:                   "查看 Wikimesh 项目来源信息",
+	WikiSkillShort:                      "管理 Wikimesh skills",
+	WikiSkillInstallShort:               "安装 Wikimesh skills",
+	WikiSkillRefsShort:                  "维护 Wikimesh skill 引用",
+	WikiSkillRefsSyncShort:              "同步 Wikimesh skill 共享引用",
+	WikiCheckShort:                      "校验 Wikimesh 文档",
+	FlagAgent:                           "目标 Agent：codex、cursor、claude",
+	FlagCodeDir:                         "代码仓目录，可重复传入多个目录",
+	FlagYes:                             "跳过交互确认",
+	FlagGlobal:                          "安装到主目录而不是当前项目",
+	FlagWikiType:                        "Skill 类型，例如 devwiki",
+	FlagWikiInitMode:                    "初始化方式：create 新建文档库，link 关联文档库",
+	FlagWikiRepoSource:                  "关联文档库来源：local、remote",
+	FlagPath:                            "本地文档库路径",
+	PromptWikiProjectName:               "Wikimesh 项目名称",
+	PromptWikiInitMode:                  "选择文档库初始化方式",
+	PromptWikiType:                      "选择 Skill 类型",
+	PromptWikiAgent:                     "选择 Wikimesh Agent（可多选）",
+	PromptWikiCodeDirs:                  "代码目录（逗号分隔，可留空）",
+	PromptWikiRepoSource:                "选择文档库来源",
+	PromptWikiRepoLocalPath:             "本地文档库路径",
+	PromptWikiRepoRemoteURL:             "远端文档库 URL",
+	PromptWikiRepoLinkCode:              "关联代码库？",
+	PromptWikiRepoLinkMore:              "继续关联代码库？",
+	PromptWikiRepoCodeName:              "代码库标识",
+	PromptWikiRepoCodePath:              "代码库路径",
+	PromptWikiScope:                     "选择 Wikimesh skill 安装范围",
+	PromptSelectWikiSkills:              "选择要安装的 Wikimesh skills",
+	TitleWikiSummary:                    "Wikimesh 初始化摘要",
+	TitleQMDManualDownload:              "QMD 模型下载",
+	ProjectLabel:                        "项目级",
+	WikiTypeLabel:                       "Skill 类型",
+	SourceLabel:                         "文档库目录",
+	AgentLabel:                          "Agent",
+	WikiCodeDirsLabel:                   "代码目录",
+	ScopeLabel:                          "范围",
+	GlobalLabel:                         "全局级",
+	InstallInProject:                    "安装到当前项目",
+	InstallInHome:                       "安装到主目录",
+	WikiInitModeCreateLabel:             "新建文档库",
+	WikiInitModeLinkLabel:               "关联文档库",
+	WikiRepoSourceLocalLabel:            "本地文档库",
+	WikiRepoSourceRemoteLabel:           "远端文档库",
+	WikiRepoLinkCodeLabel:               "关联代码库",
+	WikiRepoContinueLabel:               "暂不关联",
+	WikiRepoLinkAnotherLabel:            "继续关联",
+	WikiRepoFinishLabel:                 "完成",
+	StepCreatingWikiProject:             "创建 Wikimesh 文档库",
+	StepFetchingWikiSkillsFmt:           "获取 Wikimesh skills：%s",
+	StepInstallingWikiSkills:            "安装 Wikimesh skills",
+	CreatedFmt:                          "已创建 Wikimesh 文档库：%s",
+	WikiInstalledSkillsFmt:              "已安装 %s 的 %d 个 Wikimesh skills",
+	QMDManualDownloadHint:               "如需手动下载 QMD models，请进入新建的 Wikimesh 工作区后执行：",
+	QMDManualDownloadCommand:            "wikimesh qmd model download all",
+	Done:                                "完成！",
+	Cancelled:                           "已取消",
+	NoMatchesFound:                      "没有匹配项",
+	SearchLabel:                         "搜索",
+	SelectedLabel:                       "已选择",
+	SelectedNone:                        "无",
+	MoreSelectedFmt:                     "%s 等 %d 项",
+	AlwaysIncludedSuffix:                "始终包含",
+	MultiSelectHelp:                     "输入筛选，空格选择，回车确认，Esc 取消",
+	SingleSelectHelp:                    "上下选择，回车确认，Esc 取消",
+	FlagRoot:                            "Wikimesh 工作区根目录",
+	FlagProject:                         "Wikimesh 项目名称或 slug；设置后按用户级项目配置解析本地工作区",
+	FlagView:                            "页面视图：card、core、explain",
+	FlagFormat:                          "输出格式",
+	FlagRemote:                          "远端 Wikimesh API 地址",
+	FlagCollectionName:                  "文档集合名称",
+	FlagCollectionPath:                  "文档集合根目录",
+	FlagCollectionMask:                  "glob 匹配规则",
+	FlagCollectionInclude:               "逗号分隔的 include glob 列表",
+	FlagLimit:                           "最大返回数量",
+	FlagAll:                             "返回全部搜索结果",
+	FlagMinScore:                        "最低分数阈值",
+	FlagCollectionFilter:                "文档集合过滤，可重复传入多个集合",
+	FlagRawVector:                       "使用原始向量搜索，不执行查询扩展",
+	FlagQueries:                         "预扩展查询 JSON",
+	FlagIntent:                          "领域意图提示",
+	FlagCandidateLimit:                  "重排前最大候选数量",
+	FlagExplain:                         "输出 RRF/重排解释信息",
+	FlagNoRerank:                        "跳过 reranker，返回 RRF 位置分",
+	FlagForce:                           "重建已有向量",
+	FlagProvider:                        "覆盖 embedding provider",
+	FlagModel:                           "覆盖 embedding 模型",
+	FlagCommand:                         "覆盖 embedding 命令",
+	FlagDimensions:                      "覆盖 embedding 维度",
+	FlagLibPath:                         "llama.cpp 运行时库目录",
+	FlagProcessor:                       "处理器类型：auto、cpu、metal、cuda、vulkan、rocm",
+	FlagVersion:                         "llama.cpp release 版本",
+	FlagOS:                              "运行时系统：linux、darwin、windows、bookworm、trixie",
+	FlagUpgrade:                         "即使运行时库已存在也重新下载",
+	FlagPull:                            "索引前执行 collection 的 update 命令",
+	HelpUsage:                           "用法",
+	HelpAvailableCommands:               "可用命令",
+	HelpFlags:                           "参数",
+	HelpGlobalFlags:                     "全局参数",
+	HelpMoreInfoFmt:                     "使用 \"%s --help\" 查看更多信息。",
+	OutputWikiCreatedFmt:                "已创建 Wikimesh 工作区：%s\n",
+	OutputWikiRepoRootFmt:               "Wikimesh 项目来源配置目录：%s\n",
+	OutputWikiRepoSavedFmt:              "已保存 Wikimesh 项目：%s\n",
+	OutputWikiRepoLinkedFmt:             "已关联代码仓：%s\n",
+	OutputWikiRepoActiveFmt:             "当前来源：%s\n",
+	OutputWikiRefsFmt:                   "Wikimesh skill 引用%s完成\n",
+	OutputWikiSkillsInstalledFmt:        "已为 %s 安装 %s 的 %d 个 Wikimesh skill\n",
+	OutputWikiCheckIssueFmt:             "错误 %s\n",
+	OutputWikiCheckPassedFmt:            "Wikimesh 文档校验通过（%d 个文件）\n",
+	OutputWikiUpdateDoneFmt:             "%s完成%s 已更新 %s -> %s\n",
+	OutputWikiUpdateDeferredFmt:         "%s完成%s 已下载 %s，退出当前进程后会替换 %s；请重新打开终端。\n",
+	OutputQMDCollectionFmt:              "集合：%s\n",
+	OutputQMDUpdateStartFmt:             "更新 %d 个集合...\n\n",
+	OutputQMDUpdateDone:                 "全部集合已更新。\n",
+	OutputQMDIndexedFmt:                 "索引：%d 个新增/更新，%d 个未变化，%d 个已移除\n",
+	OutputQMDStatusTitle:                "QMD 状态",
+	OutputQMDStatusIndexFmt:             "索引：%s\n",
+	OutputQMDStatusDocumentsFmt:         "文档：%d 个文件已索引，%d 个向量\n",
+	OutputQMDStatusPendingFmt:           "待向量化：%d 个文档\n",
+	OutputQMDStatusCollections:          "集合：",
+	OutputQMDStatusCollectionFmt:        "  %s：%d 个文件，pattern=%s，更新=%s\n",
+	OutputQMDStatusCollectionContextFmt: "    上下文：%d\n",
+	OutputQMDEmbedHint:                  "\n运行 'wikimesh qmd embed' 更新向量\n",
+	OutputQMDNoCollections:              "未发现集合。请先运行 'wikimesh qmd collection add .' 索引 Markdown 文件。",
+	OutputQMDModelFmt:                   "模型：%s\n\n",
+	OutputQMDEmbeddedFmt:                "向量：%d 个 chunk，%d 个文档已检查，%d 个未变化\n\n",
+	OutputQMDEmbeddedTotalFmt:           "向量：%d 个 chunk 总计，%d 个文档已检查，%d 个未变化\n",
+	OutputQMDEmbedDone:                  "全部向量已更新。\n",
+	OutputQMDDownloadingFmt:             "正在下载：%s -> %s\n",
+	OutputQMDDownloadedFmt:              "已下载：%s -> %s\n",
+	OutputQMDExistsFmt:                  "已存在：%s\n",
+	OutputQMDInstallingLibFmt:           "正在安装 llama.cpp：processor=%s version=%s -> %s\n",
+	OutputQMDInstalledFmt:               "已安装：%s\n",
+	ErrorUnsupportedInitModeFmt:         "不支持的初始化方式：%q",
+	ErrorProjectRequired:                "项目名称不能为空",
+	ErrorUnsupportedAgentFmt:            "不支持的 Agent：%q",
+	ErrorUnsupportedWikiSourceFmt:       "不支持的文档库来源：%q",
+	ErrorLocalWikiSourcePathRequired:    "本地文档库路径不能为空",
+	ErrorLocalWikiSourcePathNotDirFmt:   "本地文档库路径不是目录：%q",
+	ErrorRemoteWikiSourceURLRequired:    "远端文档库 URL 不能为空",
+	ErrorCodeRepoSlugRequired:           "代码库标识不能为空",
+	ErrorCodeRepoPathRequired:           "代码库路径不能为空",
+	ErrorCodeDirNotDirFmt:               "代码库路径不是目录：%q",
 }
 
 // Messages 返回当前 CLI 文案目录；后续多语言支持只需要切换这里的来源。

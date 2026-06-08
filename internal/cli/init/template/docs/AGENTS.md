@@ -9,9 +9,8 @@
 ./
 ├── README.md                    ← 项目说明、使用方式与工作流入口
 ├── {{RUNTIME_FILE}}             ← 当前 agent 对应的运行时规则副本
-├── config/
-│   ├── project.yaml             ← 当前项目默认配置，如项目 slug、代码仓列表、语言与 agent
-│   └── search.yaml              ← qmd collection 配置
+├── .wikimesh/
+│   └── qmd.yaml                 ← qmd collection 配置
 ├── raw/
 │   ├── requirements/            ← 原始需求文档
 │   ├── designs/                 ← 原始设计文档
@@ -27,11 +26,11 @@
     └── outputs/                 ← ingest / maintain / query / code-to-doc 报告
 ```
 
-本目录就是 DevWiki 文档库根目录。代码库通过 AGENTS/CLAUDE 中的托管关联块指向本目录。Agent 在代码库内使用 `devwiki-query`、`devwiki-code` 或 `devwiki-code-to-doc` 前，必须先阅读本文件；查询以本目录的 `wiki/`、`raw/`、`config/search.yaml` 为知识来源，生成的新 Wiki 文件也必须写回本目录。
+本目录就是 DevWiki 文档库根目录。代码库通过 AGENTS/CLAUDE 中的托管关联块指向本目录。Agent 在代码库内使用 `devwiki-query`、`devwiki-code` 或 `devwiki-code-to-doc` 前，必须先阅读本文件；查询以本目录的 `wiki/`、`raw/`、`.wikimesh/qmd.yaml` 为知识来源，生成的新 Wiki 文件也必须写回本目录。
 
 使用 `devwiki-query` 或 `devwiki-code` 时，必须严格遵循对应 Skill.md 的查询和定位步骤；禁止绕过 skill 流程自行做全仓广泛搜索或自由发挥式检索。
 
-`raw/` 是事实来源层，`wiki/` 是结构化知识层。`config/search.yaml` 只保存检索配置，不替代事实内容。
+`raw/` 是事实来源层，`wiki/` 是结构化知识层。`.wikimesh/qmd.yaml` 只保存检索配置，不替代事实内容。
 
 ## Wiki 目录
 
@@ -157,7 +156,7 @@ wikimesh graph --project <project> --host 127.0.0.1 --port 5696
 
 - 使用 `wikimesh init` 在当前目录初始化 DevWiki 文档库并安装 skills
 - 使用 `wikimesh repo link <project> <repo-slug> <path>` 将代码库路径写入用户级 DevWiki 项目配置
-- 如需下载 qmd models，初始化完成后可在 DevWiki 工作区内手动执行 `wikimesh qmd download --root .`
+- 如需下载 qmd models，初始化完成后可在 DevWiki 工作区内手动执行 `wikimesh qmd model download all`
 - 对已有工作区补做或修复 qmd collection 注册、索引刷新与状态检查时，直接执行 `wikimesh qmd sync/update/status`
 - 使用 `devwiki-ingest` 吸收 raw 文档并生成 TopicTask / WorkflowTask；TopicTask 需要带 module 建议，Topic 正文交给 `devwiki-topic`，Workflow 正文交给 `devwiki-workflow`
 - 使用 `devwiki-topic` 或 `devwiki-workflow` 新建页面后，必须先查 `wiki/glossary.md`，缺少关键术语时按通用格式补充

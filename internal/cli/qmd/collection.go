@@ -16,7 +16,6 @@ import (
 )
 
 type collectionAddOptions struct {
-	project string
 	name    string
 	path    string
 	mask    string
@@ -41,13 +40,13 @@ func newCollectionCommand() *cobra.Command {
 
 func newCollectionAddCommand() *cobra.Command {
 	msg := ui.Messages()
-	var project, addName, addPath, addMask, addInclude string
+	var addName, addPath, addMask, addInclude string
 	cmd := &cobra.Command{
 		Use:   "add [path]",
 		Short: msg.CollectionAddShort,
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			store, cfg, configPath, err := openStoreForProject(cmd.Context(), project)
+			store, cfg, configPath, err := openWorkspaceStore(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -64,7 +63,6 @@ func newCollectionAddCommand() *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().StringVar(&project, "project", "", msg.FlagProject)
 	cmd.Flags().StringVar(&addName, "name", "", msg.FlagCollectionName)
 	cmd.Flags().StringVar(&addPath, "path", "", msg.FlagCollectionPath)
 	cmd.Flags().StringVar(&addMask, "mask", "", msg.FlagCollectionMask)
@@ -96,13 +94,12 @@ func runAdd(ctx context.Context, cfg qmd.FileConfig, configPath string, store *q
 
 func newCollectionListCommand() *cobra.Command {
 	msg := ui.Messages()
-	var project string
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: msg.CollectionListShort,
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			store, _, _, err := openStoreForProject(cmd.Context(), project)
+			store, _, _, err := openWorkspaceStore(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -110,7 +107,6 @@ func newCollectionListCommand() *cobra.Command {
 			return runList(cmd.Context(), cmd.OutOrStdout(), store)
 		},
 	}
-	cmd.Flags().StringVar(&project, "project", "", msg.FlagProject)
 	return cmd
 }
 
@@ -128,14 +124,13 @@ func runList(ctx context.Context, out io.Writer, store *qmd.Store) error {
 
 func newCollectionRemoveCommand() *cobra.Command {
 	msg := ui.Messages()
-	var project string
 	cmd := &cobra.Command{
 		Use:     "remove <name>",
 		Aliases: []string{"rm"},
 		Short:   msg.CollectionRemoveShort,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			store, cfg, configPath, err := openStoreForProject(cmd.Context(), project)
+			store, cfg, configPath, err := openWorkspaceStore(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -143,7 +138,6 @@ func newCollectionRemoveCommand() *cobra.Command {
 			return runRemove(cmd.Context(), cmd.OutOrStdout(), cfg, configPath, store, args[0])
 		},
 	}
-	cmd.Flags().StringVar(&project, "project", "", msg.FlagProject)
 	return cmd
 }
 
@@ -163,13 +157,12 @@ func runRemove(ctx context.Context, out io.Writer, cfg qmd.FileConfig, configPat
 
 func newCollectionUpdateCommand() *cobra.Command {
 	msg := ui.Messages()
-	var project string
 	cmd := &cobra.Command{
 		Use:   "update <name>",
 		Short: msg.CollectionUpdateShort,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			store, _, _, err := openStoreForProject(cmd.Context(), project)
+			store, _, _, err := openWorkspaceStore(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -177,7 +170,6 @@ func newCollectionUpdateCommand() *cobra.Command {
 			return runUpdate(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), store, args[0])
 		},
 	}
-	cmd.Flags().StringVar(&project, "project", "", msg.FlagProject)
 	return cmd
 }
 
@@ -200,7 +192,7 @@ func runUpdate(ctx context.Context, out, errOut io.Writer, store *qmd.Store, nam
 		}
 		_ = bar.Set(info.Current)
 	}
-	result, err := store.UpdateCollection(ctx, name, qmd.UpdateOptions{Progress: progress})
+	result, err := store.UpdateCollection(ctx, name, qmd.UpdateOptions{RunUpdateCommand: true, Progress: progress})
 	if err != nil {
 		return err
 	}

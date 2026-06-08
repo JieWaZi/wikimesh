@@ -59,11 +59,12 @@ func TestRunWikiInitInstallsSkillsFromResolvedGitHubBundle(t *testing.T) {
 	if !resolved {
 		t.Fatal("runWikiInit should resolve the shared Wikimesh skill bundle")
 	}
-	if _, err := os.Stat(filepath.Join(root, ".agents", "skills", "devwiki-query", "SKILL.md")); err != nil {
+	targetDir := filepath.Join(root, "sample")
+	if _, err := os.Stat(filepath.Join(targetDir, ".agents", "skills", "devwiki-query", "SKILL.md")); err != nil {
 		t.Fatalf("missing installed skill: %v", err)
 	}
 
-	runtimeData, err := os.ReadFile(filepath.Join(root, "AGENTS.md"))
+	runtimeData, err := os.ReadFile(filepath.Join(targetDir, "AGENTS.md"))
 	if err != nil {
 		t.Fatalf("ReadFile(AGENTS.md) error = %v", err)
 	}
@@ -77,12 +78,15 @@ func TestRunWikiInitInstallsSkillsFromResolvedGitHubBundle(t *testing.T) {
 		t.Fatalf("AGENTS.md should not mention zatools devwiki:\n%s", runtime)
 	}
 
-	projectData, err := os.ReadFile(filepath.Join(root, "config/project.yaml"))
-	if err != nil {
-		t.Fatalf("ReadFile(config/project.yaml) error = %v", err)
+	if _, err := os.Stat(filepath.Join(targetDir, "config/project.yaml")); !os.IsNotExist(err) {
+		t.Fatalf("document library should not contain config/project.yaml, stat error = %v", err)
 	}
-	if !strings.Contains(string(projectData), "wiki_type: devwiki") {
-		t.Fatalf("project config missing wiki_type devwiki:\n%s", string(projectData))
+	cfg, err := common.LoadWikiRepoConfig("sample")
+	if err != nil {
+		t.Fatalf("LoadWikiRepoConfig error = %v", err)
+	}
+	if cfg.ProjectName != "Sample" || cfg.ProjectSlug != "sample" || cfg.ActiveSource != common.WikiRepoSourceLocal {
+		t.Fatalf("repo config = %#v, want user-level config for sample", cfg)
 	}
 }
 
@@ -103,17 +107,91 @@ func TestRunWikiInitInstallsSkillsForMultipleAgents(t *testing.T) {
 		t.Fatalf("runWikiInit error = %v", err)
 	}
 
+	targetDir := filepath.Join(root, "multi-agent")
 	for _, rel := range []string{
 		filepath.Join(".agents", "skills", "devwiki-query", "SKILL.md"),
 		filepath.Join(".cursor", "skills", "devwiki-query", "SKILL.md"),
 		filepath.Join(".claude", "skills", "devwiki-query", "SKILL.md"),
 	} {
-		if _, err := os.Stat(filepath.Join(root, rel)); err != nil {
+		if _, err := os.Stat(filepath.Join(targetDir, rel)); err != nil {
 			t.Fatalf("missing installed skill %s: %v", rel, err)
 		}
 	}
-	if _, err := os.Stat(filepath.Join(root, "CLAUDE.md")); err != nil {
+	if _, err := os.Stat(filepath.Join(targetDir, "CLAUDE.md")); err != nil {
 		t.Fatalf("missing CLAUDE.md for claude agent: %v", err)
+	}
+}
+
+func TestRunWikiInitKeepsResolvedSkillBundleUntilInstallCompletes(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	root := t.TempDir()
+	chdirInitTest(t, root)
+
+	originalResolver := common.ResolveWikimeshSkills
+	t.Cleanup(func() { common.ResolveWikimeshSkills = originalResolver })
+
+	var cleaned bool
+	common.ResolveWikimeshSkills = func(wikiType string, ref string) (common.WikiSkillBundle, error) {
+		sourceDir := filepath.Join(t.TempDir(), "devwiki-query")
+		if err := os.MkdirAll(sourceDir, 0o755); err != nil {
+			t.Fatalf("MkdirAll(sourceDir) error = %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(sourceDir, "SKILL.md"), []byte("---\nname: devwiki-query\ndescription: query\n---\n"), 0o644); err != nil {
+			t.Fatalf("WriteFile(SKILL.md) error = %v", err)
+		}
+		return common.WikiSkillBundle{
+			Source: common.NewWikimeshSkillsSource(wikiType, ref),
+			Skills: []common.WikiSkill{{Name: "devwiki-query", Description: "query", Dir: sourceDir}},
+			Cleanup: func() error {
+				cleaned = true
+				return os.RemoveAll(filepath.Dir(sourceDir))
+			},
+		}, nil
+	}
+
+	if err := runWikiInit(context.Background(), io.Discard, false, InitOptions{
+		ProjectName: "Cleanup Timing",
+		Agent:       "codex",
+		Yes:         true,
+	}); err != nil {
+		t.Fatalf("runWikiInit error = %v", err)
+	}
+	targetDir := filepath.Join(root, "cleanup-timing")
+	if _, err := os.Stat(filepath.Join(targetDir, ".agents", "skills", "devwiki-query", "SKILL.md")); err != nil {
+		t.Fatalf("missing installed skill after cleanup: %v", err)
+	}
+	if !cleaned {
+		t.Fatal("skill bundle cleanup was not called")
+	}
+}
+
+func TestRunWikiInitReportsSkillFetchSource(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	root := t.TempDir()
+	chdirInitTest(t, root)
+	stubWikiSkillResolver(t)
+
+	output := captureStdout(t, func() {
+		if err := runWikiInit(context.Background(), io.Discard, false, InitOptions{
+			ProjectName: "Fetch Source",
+			Agent:       "codex",
+			Yes:         true,
+		}); err != nil {
+			t.Fatalf("runWikiInit error = %v", err)
+		}
+	})
+
+	for _, want := range []string{
+		"获取 Wikimesh runtime skills",
+		"https://github.com/JieWaZi/wikimesh/tree/main/skills/devwiki",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("output missing %q:\n%s", want, output)
+		}
 	}
 }
 
@@ -135,6 +213,7 @@ func TestRunWikiInitCreateAllowsNoCodeRepos(t *testing.T) {
 		t.Fatalf("runWikiInit error = %v", err)
 	}
 
+	targetDir := filepath.Join(root, "no-code-repo")
 	cfg, err := common.LoadWikiRepoConfig("no-code-repo")
 	if err != nil {
 		t.Fatalf("LoadWikiRepoConfig error = %v", err)
@@ -142,8 +221,80 @@ func TestRunWikiInitCreateAllowsNoCodeRepos(t *testing.T) {
 	if len(cfg.CodeRepos) != 0 {
 		t.Fatalf("CodeRepos = %#v, want empty", cfg.CodeRepos)
 	}
-	if cfg.ActiveSource != common.WikiRepoSourceLocal || cfg.Sources.Local == nil || !samePath(t, cfg.Sources.Local.Path, root) {
-		t.Fatalf("local source = %#v active=%q, want %s", cfg.Sources.Local, cfg.ActiveSource, root)
+	if cfg.ActiveSource != common.WikiRepoSourceLocal || cfg.Sources.Local == nil || !samePath(t, cfg.Sources.Local.Path, targetDir) {
+		t.Fatalf("local source = %#v active=%q, want %s", cfg.Sources.Local, cfg.ActiveSource, targetDir)
+	}
+}
+
+func TestRunWikiInitCreateSavesExplicitCodeRepos(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	root := t.TempDir()
+	codeRoot := t.TempDir()
+	chdirInitTest(t, root)
+	stubWikiSkillResolver(t)
+
+	err := runWikiInit(context.Background(), io.Discard, false, InitOptions{
+		ProjectName: "Create Linked Code",
+		Agent:       "codex",
+		CodeRepos:   []InitCodeRepo{{Slug: "Main Repo", Path: codeRoot}},
+		Yes:         true,
+	})
+	if err != nil {
+		t.Fatalf("runWikiInit error = %v", err)
+	}
+
+	cfg, err := common.LoadWikiRepoConfig("create-linked-code")
+	if err != nil {
+		t.Fatalf("LoadWikiRepoConfig error = %v", err)
+	}
+	if len(cfg.CodeRepos) != 1 {
+		t.Fatalf("CodeRepos len = %d, want 1: %#v", len(cfg.CodeRepos), cfg.CodeRepos)
+	}
+	if cfg.CodeRepos[0].Slug != "main-repo" || !samePath(t, cfg.CodeRepos[0].Path, codeRoot) || !cfg.CodeRepos[0].Default {
+		t.Fatalf("CodeRepos[0] = %#v, want default main-repo path %s", cfg.CodeRepos[0], codeRoot)
+	}
+}
+
+func TestRunWikiInitCreateUsesProjectSlugDirectory(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	root := t.TempDir()
+	chdirInitTest(t, root)
+	stubWikiSkillResolver(t)
+
+	err := runWikiInit(context.Background(), io.Discard, false, InitOptions{
+		ProjectName: "My Project",
+		Agent:       "codex",
+		Yes:         true,
+	})
+	if err != nil {
+		t.Fatalf("runWikiInit error = %v", err)
+	}
+
+	targetDir := filepath.Join(root, "my-project")
+	for _, rel := range []string{"wiki", ".wikimesh", "README.md", "AGENTS.md"} {
+		if _, err := os.Stat(filepath.Join(targetDir, rel)); err != nil {
+			t.Fatalf("missing created path %s under project directory: %v", rel, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(targetDir, "config/project.yaml")); !os.IsNotExist(err) {
+		t.Fatalf("document library should not contain config/project.yaml, stat error = %v", err)
+	}
+	for _, rel := range []string{"wiki", "config"} {
+		if _, err := os.Stat(filepath.Join(root, rel)); !os.IsNotExist(err) {
+			t.Fatalf("create mode should not write %s directly under cwd, stat error = %v", rel, err)
+		}
+	}
+
+	cfg, err := common.LoadWikiRepoConfig("my-project")
+	if err != nil {
+		t.Fatalf("LoadWikiRepoConfig error = %v", err)
+	}
+	if cfg.Sources.Local == nil || !samePath(t, cfg.Sources.Local.Path, targetDir) {
+		t.Fatalf("local source = %#v, want %s", cfg.Sources.Local, targetDir)
 	}
 }
 
@@ -428,6 +579,30 @@ func TestWikiInitTypeCopyDescribesSkillType(t *testing.T) {
 	}
 }
 
+func TestNewCommandLeavesWikiTypeUnsetUntilSkillSelection(t *testing.T) {
+	cmd := NewCommand()
+	flag := cmd.Flags().Lookup("type")
+	if flag == nil {
+		t.Fatal("missing --type flag")
+	}
+	if flag.DefValue != "" {
+		t.Fatalf("--type default = %q, want empty so interactive init prompts skill type", flag.DefValue)
+	}
+}
+
+func TestWikiInitSummaryCopyNamesDocumentLibraryPath(t *testing.T) {
+	msg := ui.Messages()
+	if msg.SourceLabel != "文档库目录" {
+		t.Fatalf("SourceLabel = %q, want 文档库目录", msg.SourceLabel)
+	}
+	if !strings.Contains(msg.StepCreatingWikiProject, "文档库") {
+		t.Fatalf("StepCreatingWikiProject = %q, want document library wording", msg.StepCreatingWikiProject)
+	}
+	if !strings.Contains(msg.CreatedFmt, "Wikimesh 文档库") {
+		t.Fatalf("CreatedFmt = %q, want document library wording", msg.CreatedFmt)
+	}
+}
+
 func TestSelectedWikiInitSkillsPromptsTypeNextToSkillSelection(t *testing.T) {
 	sourceDir := filepath.Join(t.TempDir(), "query")
 	if err := os.MkdirAll(sourceDir, 0o755); err != nil {
@@ -466,9 +641,12 @@ func TestSelectedWikiInitSkillsPromptsTypeNextToSkillSelection(t *testing.T) {
 	}
 
 	opts := InitOptions{Agents: []string{"codex"}}
-	selected, err := selectedWikiInitSkills(&opts, true)
+	selected, cleanup, err := selectedWikiInitSkills(&opts, true)
 	if err != nil {
 		t.Fatalf("selectedWikiInitSkills error = %v", err)
+	}
+	if cleanup != nil {
+		t.Cleanup(func() { _ = cleanup() })
 	}
 	if len(selected) != 1 || selected[0].Name != "devwiki-query" {
 		t.Fatalf("selected = %#v, want devwiki-query", selected)
@@ -537,4 +715,27 @@ func chdirInitTest(t *testing.T, dir string) {
 			t.Fatalf("restore cwd %s error = %v", old, err)
 		}
 	})
+}
+
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+
+	old := os.Stdout
+	read, write, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("Pipe error = %v", err)
+	}
+	os.Stdout = write
+	defer func() { os.Stdout = old }()
+
+	fn()
+
+	if err := write.Close(); err != nil {
+		t.Fatalf("close stdout pipe writer error = %v", err)
+	}
+	data, err := io.ReadAll(read)
+	if err != nil {
+		t.Fatalf("ReadAll stdout pipe error = %v", err)
+	}
+	return string(data)
 }

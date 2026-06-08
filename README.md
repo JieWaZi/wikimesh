@@ -69,6 +69,42 @@ Wikimesh 当前支持：
 - 下载配置中的 GGUF 模型，安装 llama.cpp 运行时动态库。
 - 从 GitHub Release 自更新当前 Wikimesh 可执行文件，并校验 `checksums.txt`。
 
+## 安装
+
+Linux / macOS 可通过 GitHub Release 中的安装脚本安装最新版本：
+
+```sh
+curl -fsSL https://github.com/JieWaZi/wikimesh/releases/latest/download/install.sh | sh
+```
+
+安装脚本会自动识别系统和架构，下载对应的 release 压缩包，校验 `checksums.txt` 后安装 `wikimesh`。默认安装到 `/usr/local/bin`；如果无写入权限且无法使用 `sudo`，会回退到 `~/.local/bin`。
+
+指定版本安装：
+
+```sh
+VERSION=v0.1.0 curl -fsSL https://github.com/JieWaZi/wikimesh/releases/latest/download/install.sh | sh
+```
+
+指定安装目录：
+
+```sh
+WIKIMESH_INSTALL_DIR="$HOME/.local/bin" curl -fsSL https://github.com/JieWaZi/wikimesh/releases/latest/download/install.sh | sh
+```
+
+Windows PowerShell：
+
+```powershell
+iwr https://github.com/JieWaZi/wikimesh/releases/latest/download/install.ps1 -UseBasicParsing | iex
+```
+
+安装完成后，后续可直接更新 `wikimesh` 自身：
+
+```sh
+wikimesh update
+```
+
+`wikimesh update` 会从 GitHub Release 下载 `checksums.txt`，按当前系统和架构选择匹配的压缩包，校验 SHA256 后替换当前正在运行的 `wikimesh`。Windows 会在当前进程退出后延迟替换，请重新打开终端后继续使用。
+
 ## 快速开始
 
 构建或直接运行 CLI：
@@ -141,6 +177,9 @@ wikimesh update
 wikimesh qmd collection add ./docs --name docs
 wikimesh qmd collection list
 wikimesh qmd collection update docs
+wikimesh qmd update
+wikimesh qmd update --pull
+wikimesh qmd status
 ```
 
 如果需要向量检索或混合查询，先下载模型、安装 llama.cpp 运行时库，再生成 embedding：
@@ -161,11 +200,11 @@ wikimesh qmd query "Wikimesh 如何执行混合查询？" --collection docs --no
 
 常用选项：
 
-- `--project <project>`：读取已登记项目的 `.wikimesh/qmd.yaml`。
 - `--collection, -c <name>`：限制目标 collection，可重复传入。
 - `--limit, -n <number>`：限制返回条数。
 - `--all`：返回更大的结果集。
 - `--min-score <score>`：设置最低分数。
+- `wikimesh qmd update --pull`：刷新索引前执行 collection 配置中的 `update` 命令。
 - `wikimesh qmd vsearch --raw`：只使用原始 query 做纯向量检索，不使用 query expansion。
 - `wikimesh qmd embed --force`：重新生成已存在的 embedding。
 
@@ -230,6 +269,8 @@ wikimesh check document               校验 Wiki 页面结构
 wikimesh repo add/info/link/use        管理 Wikimesh 项目来源
 wikimesh skill install                安装 runtime skills
 wikimesh qmd collection ...           管理 qmd collection
+wikimesh qmd status                   查看 qmd 索引和集合状态
+wikimesh qmd update                   刷新所有 qmd 集合索引
 wikimesh qmd search                   执行文档级关键词检索
 wikimesh qmd vsearch                  执行 chunk 级向量检索
 wikimesh qmd query                    执行混合查询

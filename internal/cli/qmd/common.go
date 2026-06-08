@@ -20,11 +20,8 @@ func openDefaultStore(ctx context.Context) (*qmd.Store, qmd.FileConfig, error) {
 	return common.OpenDefaultQMDStore(ctx)
 }
 
-func openStoreForProject(ctx context.Context, project string) (*qmd.Store, qmd.FileConfig, string, error) {
-	root, configPath, err := resolveProjectQMDConfigPath(project)
-	if err != nil {
-		return nil, qmd.FileConfig{}, "", err
-	}
+func openWorkspaceStore(ctx context.Context) (*qmd.Store, qmd.FileConfig, string, error) {
+	root, configPath := workspaceQMDConfigPath()
 	cfg, err := common.LoadQMDConfig(configPath)
 	if err != nil {
 		return nil, qmd.FileConfig{}, "", err
@@ -37,18 +34,11 @@ func openStoreForProject(ctx context.Context, project string) (*qmd.Store, qmd.F
 	return store, cfg, configPath, nil
 }
 
-func resolveProjectQMDConfigPath(project string) (string, string, error) {
-	if strings.TrimSpace(project) == "" {
-		if root, ok := qmdConfigRoot(common.DefaultQMDConfigPath); ok {
-			return root, common.DefaultQMDConfigPath, nil
-		}
-		return "", common.DefaultQMDConfigPath, nil
+func workspaceQMDConfigPath() (string, string) {
+	if root, ok := qmdConfigRoot(common.DefaultQMDConfigPath); ok {
+		return root, common.DefaultQMDConfigPath
 	}
-	root, err := common.ResolveWikiRoot(".", project)
-	if err != nil {
-		return "", "", err
-	}
-	return root, common.QMDConfigPathForRoot(root), nil
+	return "", common.DefaultQMDConfigPath
 }
 
 func qmdConfigRoot(configPath string) (string, bool) {

@@ -16,7 +16,6 @@ import (
 
 type queryCLIOptions struct {
 	question       string
-	project        string
 	queriesJSON    string
 	intent         string
 	limit          int
@@ -40,7 +39,7 @@ func newQueryCommand() *cobra.Command {
 			return cobra.MinimumNArgs(1)(cmd, args)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			store, _, _, err := openStoreForProject(cmd.Context(), opts.project)
+			store, _, _, err := openWorkspaceStore(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -51,7 +50,6 @@ func newQueryCommand() *cobra.Command {
 	}
 	cmd.Flags().IntVarP(&opts.limit, "limit", "n", 10, msg.FlagLimit)
 	cmd.Flags().Float64Var(&opts.minScore, "min-score", 0, msg.FlagMinScore)
-	cmd.Flags().StringVar(&opts.project, "project", "", msg.FlagProject)
 	cmd.Flags().StringArrayVarP(&collections, "collection", "c", nil, msg.FlagCollectionFilter)
 	cmd.Flags().StringVar(&opts.queriesJSON, "queries", "", msg.FlagQueries)
 	cmd.Flags().StringVar(&opts.intent, "intent", "", msg.FlagIntent)

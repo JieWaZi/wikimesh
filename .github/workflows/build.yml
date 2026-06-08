@@ -224,3 +224,5 @@ jobs:
             .wikimesh/release/wikimesh-darwin-arm64-metal.tar.gz
             .wikimesh/release/wikimesh-windows-amd64.zip
             .wikimesh/dist/checksums.txt
+            scripts/install.sh
+            scripts/install.ps1

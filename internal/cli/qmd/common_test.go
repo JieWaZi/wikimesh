@@ -1,78 +1,34 @@
 package qmdcmd
 
 import (
-	"context"
+	"bytes"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/JieWaZi/wikimesh/internal/cli/common"
-	qmd "github.com/JieWaZi/wikimesh/pkg/qmd"
 )
 
-func TestResolveProjectQMDConfigPathUsesProjectLocalSource(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	root := t.TempDir()
-	saveQMDProjectConfig(t, "sample", root)
-
-	gotRoot, gotPath, err := resolveProjectQMDConfigPath("sample")
-	if err != nil {
-		t.Fatalf("resolveProjectQMDConfigPath error = %v", err)
+func TestWorkspaceQMDConfigPathUsesCurrentWorkspace(t *testing.T) {
+	root, gotPath := workspaceQMDConfigPath()
+	if root != filepath.Dir(filepath.Dir(common.DefaultQMDConfigPath)) {
+		t.Fatalf("root = %q, want workspace .wikimesh parent", root)
 	}
-	if gotRoot != root {
-		t.Fatalf("root = %q, want %q", gotRoot, root)
-	}
-	wantPath := filepath.Join(root, common.DefaultQMDConfigPath)
-	if gotPath != wantPath {
-		t.Fatalf("path = %q, want %q", gotPath, wantPath)
+	if gotPath != common.DefaultQMDConfigPath {
+		t.Fatalf("path = %q, want %q", gotPath, common.DefaultQMDConfigPath)
 	}
 }
 
-func TestOpenStoreForProjectAnchorsRelativeQMDPathsToProjectRoot(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	root := t.TempDir()
-	saveQMDProjectConfig(t, "sample", root)
-
-	cfg := qmd.DefaultFileConfig()
-	cfg.DBPath = ".wikimesh/wiki.db"
-	cfg.Collections = []qmd.Collection{{Name: "docs", Path: "wiki"}}
-	configPath := filepath.Join(root, common.DefaultQMDConfigPath)
-	if err := qmd.SaveConfigFile(configPath, cfg); err != nil {
-		t.Fatalf("SaveConfigFile error = %v", err)
+func TestQMDCommandsDoNotExposeProjectFlag(t *testing.T) {
+	cmd := NewCommand()
+	cmd.SetArgs([]string{"search", "--help"})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&bytes.Buffer{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute help: %v", err)
 	}
-
-	store, gotCfg, gotPath, err := openStoreForProject(context.Background(), "sample")
-	if err != nil {
-		t.Fatalf("openStoreForProject error = %v", err)
-	}
-	defer store.Close()
-
-	if gotPath != configPath {
-		t.Fatalf("configPath = %q, want %q", gotPath, configPath)
-	}
-	wantDB := filepath.Join(root, ".wikimesh/wiki.db")
-	if gotCfg.DBPath != wantDB {
-		t.Fatalf("DBPath = %q, want %q", gotCfg.DBPath, wantDB)
-	}
-	if len(gotCfg.Collections) != 1 {
-		t.Fatalf("collections = %#v, want one collection", gotCfg.Collections)
-	}
-	wantCollectionPath := filepath.Join(root, "wiki")
-	if gotCfg.Collections[0].Path != wantCollectionPath {
-		t.Fatalf("collection path = %q, want %q", gotCfg.Collections[0].Path, wantCollectionPath)
-	}
-}
-
-func saveQMDProjectConfig(t *testing.T, slug, root string) {
-	t.Helper()
-	if err := common.SaveWikiRepoConfig(common.WikiRepoConfig{
-		ProjectName:  slug,
-		ProjectSlug:  slug,
-		Language:     "zh",
-		ActiveSource: common.WikiRepoSourceLocal,
-		Sources: common.WikiRepoSources{
-			Local: &common.WikiRepoSource{Type: common.WikiRepoSourceLocal, Path: root},
-		},
-	}); err != nil {
-		t.Fatalf("SaveWikiRepoConfig error = %v", err)
+	if strings.Contains(out.String(), "--project") {
+		t.Fatalf("qmd help exposes --project:\n%s", out.String())
 	}
 }

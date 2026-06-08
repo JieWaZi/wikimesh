@@ -286,6 +286,10 @@ type UpdateOptions struct {
 	// RebuildVectors 保留兼容旧调用；collection update 不再生成向量。
 	RebuildVectors bool
 
+	// RunUpdateCommand 控制是否执行 collection 的 update 命令。
+	// 顶层 update 默认只重建索引；需要对齐 qmd update --pull 时才启用。
+	RunUpdateCommand bool
+
 	// Progress 在每个文件处理后被调用，供 CLI 更新进度条。
 	Progress func(UpdateProgress)
 }
@@ -313,6 +317,15 @@ type UpdateResult struct {
 
 	// Embedded 是成功写入向量的 chunk 数量。
 	Embedded int
+}
+
+// StatusResult 描述 qmd 索引的整体状态。
+type StatusResult struct {
+	DBPath         string
+	TotalDocuments int
+	VectorCount    int
+	NeedsEmbedding int
+	Collections    []Collection
 }
 
 // EmbedOptions 控制已索引文档的向量生成行为。

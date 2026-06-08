@@ -360,7 +360,7 @@ func TestAddCollectionDefaultsToQMDMarkdownPattern(t *testing.T) {
 	}
 }
 
-func TestUpdateCollectionRunsUpdateCommandBeforeScanning(t *testing.T) {
+func TestUpdateCollectionSkipsUpdateCommandByDefault(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
 	docs := filepath.Join(dir, "docs")
@@ -378,6 +378,36 @@ func TestUpdateCollectionRunsUpdateCommandBeforeScanning(t *testing.T) {
 		t.Fatalf("AddCollection: %v", err)
 	}
 	if _, err := store.UpdateCollection(ctx, "docs", qmd.UpdateOptions{}); err != nil {
+		t.Fatalf("UpdateCollection: %v", err)
+	}
+
+	hits, err := store.Search(ctx, "docs", "update command marker", qmd.SearchOptions{Limit: 5})
+	if err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if len(hits) != 0 {
+		t.Fatalf("hits = %#v, want no file created without pull/update command", hits)
+	}
+}
+
+func TestUpdateCollectionRunsUpdateCommandWhenPullEnabled(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	docs := filepath.Join(dir, "docs")
+	if err := os.MkdirAll(docs, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	command := `printf '# Generated\n\nupdate command marker\n' > generated.md`
+
+	store, err := qmd.NewStore(qmd.Config{DBPath: filepath.Join(dir, "wiki.db")})
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	defer store.Close()
+	if err := store.AddCollection(ctx, qmd.Collection{Name: "docs", Path: docs, Pattern: "**/*.md", Update: command}); err != nil {
+		t.Fatalf("AddCollection: %v", err)
+	}
+	if _, err := store.UpdateCollection(ctx, "docs", qmd.UpdateOptions{RunUpdateCommand: true}); err != nil {
 		t.Fatalf("UpdateCollection: %v", err)
 	}
 

@@ -27,11 +27,11 @@ wikimesh init "{{PROJECT_NAME}}" --agent {{AGENT}} --code-dir "{{PRIMARY_CODE_DI
 
 `wikimesh init` 会完成以下动作：
 
-- 直接把当前工作目录作为 DevWiki 文档库根目录
-- 在当前目录生成 `README.md`
-- 在当前目录生成当前 agent 对应的运行时文件 `{{RUNTIME_FILE}}`
-- 生成 `config/project.yaml` 与 `config/search.yaml`
-- 在当前目录安装完整 DevWiki skills
+- 在当前目录下创建 `{{PROJECT_SLUG}}/` 作为 DevWiki 文档库根目录
+- 在文档库目录生成 `README.md`
+- 在文档库目录生成当前 agent 对应的运行时文件 `{{RUNTIME_FILE}}`
+- 生成 `.wikimesh/qmd.yaml`
+- 在文档库目录安装完整 DevWiki skills
 - 在初始化结束后提示用户：如需，可手动执行 `wikimesh qmd download --root .`
 
 ### 第二步：同步 `wikimesh qmd` 检索层
@@ -46,7 +46,7 @@ wikimesh qmd status
 需要提前下载模型时：
 
 ```bash
-wikimesh qmd download --root .
+wikimesh qmd model download all
 ```
 
 ### 第三步：准备原始资料
@@ -115,9 +115,8 @@ wikimesh qmd download --root .
 ./
 ├── README.md                    ← 项目说明、使用方式与工作流入口
 ├── {{RUNTIME_FILE}}             ← 当前 agent 对应的运行时规则副本
-├── config/
-│   ├── project.yaml             ← 当前项目默认配置
-│   └── search.yaml              ← `wikimesh qmd` collection 配置
+├── .wikimesh/
+│   └── qmd.yaml                 ← `wikimesh qmd` collection 配置
 ├── raw/
 │   ├── requirements/
 │   ├── designs/

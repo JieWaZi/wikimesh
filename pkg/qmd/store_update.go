@@ -24,8 +24,10 @@ func (s *Store) UpdateCollection(ctx context.Context, name string, opts UpdateOp
 	if err != nil {
 		return nil, err
 	}
-	if err := runCollectionUpdateCommand(ctx, c); err != nil {
-		return nil, err
+	if opts.RunUpdateCommand {
+		if err := runCollectionUpdateCommand(ctx, c); err != nil {
+			return nil, err
+		}
 	}
 	files, err := scanCollection(c)
 	if err != nil {
