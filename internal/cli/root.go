@@ -1,0 +1,42 @@
+package cli
+
+import (
+	"github.com/spf13/cobra"
+
+	checkcmd "github.com/JieWaZi/wikimesh/internal/cli/check"
+	glossarycmd "github.com/JieWaZi/wikimesh/internal/cli/glossary"
+	initcmd "github.com/JieWaZi/wikimesh/internal/cli/init"
+	qmdcmd "github.com/JieWaZi/wikimesh/internal/cli/qmd"
+	readcmd "github.com/JieWaZi/wikimesh/internal/cli/read"
+	repocmd "github.com/JieWaZi/wikimesh/internal/cli/repo"
+	searchcmd "github.com/JieWaZi/wikimesh/internal/cli/search"
+	skillcmd "github.com/JieWaZi/wikimesh/internal/cli/skill"
+	updatecmd "github.com/JieWaZi/wikimesh/internal/cli/update"
+	"github.com/JieWaZi/wikimesh/internal/ui"
+)
+
+// NewRootCmd 构建 Wikimesh 根命令，并直接挂载所有一级命令。
+func NewRootCmd() *cobra.Command {
+	msg := ui.Messages()
+	root := &cobra.Command{
+		Use:           "wikimesh",
+		Short:         msg.RootShort,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Run: func(cmd *cobra.Command, args []string) {
+			_ = cmd.Help()
+		},
+	}
+	root.CompletionOptions.DisableDefaultCmd = true
+	root.AddCommand(initcmd.NewCommand())
+	root.AddCommand(updatecmd.NewCommand())
+	root.AddCommand(readcmd.NewCommand())
+	root.AddCommand(searchcmd.NewCommand())
+	root.AddCommand(glossarycmd.NewCommand())
+	root.AddCommand(repocmd.NewCommand())
+	root.AddCommand(skillcmd.NewCommand())
+	root.AddCommand(checkcmd.NewCommand())
+	root.AddCommand(qmdcmd.NewCommand())
+	ui.ApplyLocalizedHelp(root)
+	return root
+}

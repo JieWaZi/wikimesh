@@ -1,0 +1,48 @@
+references:
+  devwiki.md:
+    targets:
+      - query/references/devwiki.md
+      - code/references/devwiki.md
+      - code-to-doc/references/devwiki.md
+      - ingest/references/devwiki.md
+      - maintain/references/devwiki.md
+      - topic/references/devwiki.md
+      - workflow/references/devwiki.md
+
+  code-tracing.md:
+    targets:
+      - code/references/code-tracing.md
+      - code-to-doc/references/code-tracing.md
+      - ingest/references/code-tracing.md
+      - maintain/references/code-tracing.md
+      - workflow/references/code-tracing.md
+
+  knowledge-placement.md:
+    targets:
+      - ingest/references/knowledge-placement.md
+      - topic/references/knowledge-placement.md
+      - workflow/references/knowledge-placement.md
+
+  mutation-safety.md:
+    targets:
+      - ingest/references/mutation-safety.md
+      - code-to-doc/references/mutation-safety.md
+      - maintain/references/mutation-safety.md
+      - topic/references/mutation-safety.md
+      - workflow/references/mutation-safety.md
+
+  common-file-format.md:
+    targets:
+      - ingest/references/common-file-format.md
+      - code-to-doc/references/common-file-format.md
+      - maintain/references/common-file-format.md
+      - topic/references/common-file-format.md
+      - workflow/references/common-file-format.md
+
+  evidence-grounding.md:
+    targets:
+      - maintain/references/evidence-grounding.md
+      - code-to-doc/references/evidence-grounding.md
+      - ingest/references/evidence-grounding.md
+      - topic/references/evidence-grounding.md
+      - workflow/references/evidence-grounding.md

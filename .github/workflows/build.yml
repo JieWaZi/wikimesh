@@ -3,8 +3,13 @@ name: build
 on:
   push:
     branches: [main]
+    tags:
+      - "v*"
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   test:
@@ -78,12 +83,25 @@ jobs:
       - name: Package
         run: make package BINARY=.wikimesh/bin/wikimesh-${{ matrix.asset }} PACKAGE=.wikimesh/dist/wikimesh-${{ matrix.asset }}.tar.gz
 
+      # 生成当前平台产物 checksum，供 release 阶段合并为 checksums.txt。
+      - name: Generate checksum
+        run: |
+          cd .wikimesh/dist
+          shasum -a 256 wikimesh-${{ matrix.asset }}.tar.gz > wikimesh-${{ matrix.asset }}.sha256
+
       # 上传多平台构建产物。
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: wikimesh-${{ matrix.asset }}
           path: .wikimesh/dist/wikimesh-${{ matrix.asset }}.tar.gz
+
+      # 上传当前平台 checksum。
+      - name: Upload checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: wikimesh-${{ matrix.asset }}-checksum
+          path: .wikimesh/dist/wikimesh-${{ matrix.asset }}.sha256
 
   package-windows:
     name: package windows-amd64
@@ -130,9 +148,79 @@ jobs:
           }
           Compress-Archive -Path .wikimesh/package/* -DestinationPath .wikimesh/dist/wikimesh-windows-amd64.zip -Force
 
+      # 生成 Windows 产物 checksum，供 release 阶段合并为 checksums.txt。
+      - name: Generate checksum
+        shell: pwsh
+        run: |
+          $file = ".wikimesh/dist/wikimesh-windows-amd64.zip"
+          $hash = (Get-FileHash -Algorithm SHA256 $file).Hash.ToLowerInvariant()
+          "$hash  wikimesh-windows-amd64.zip" | Set-Content -NoNewline .wikimesh/dist/wikimesh-windows-amd64.sha256
+
       # 上传 Windows 构建产物。
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: wikimesh-windows-amd64
           path: .wikimesh/dist/wikimesh-windows-amd64.zip
+
+      # 上传 Windows checksum。
+      - name: Upload checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: wikimesh-windows-amd64-checksum
+          path: .wikimesh/dist/wikimesh-windows-amd64.sha256
+
+  checksums:
+    name: generate checksums.txt
+    runs-on: ubuntu-latest
+    needs: [package, package-windows]
+    steps:
+      # 下载所有平台 checksum artifact。
+      - name: Download checksums
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wikimesh-*-checksum
+          path: .wikimesh/checksums
+          merge-multiple: true
+
+      # 合并为 release 使用的 checksums.txt。
+      - name: Merge checksums
+        run: |
+          mkdir -p .wikimesh/dist
+          find .wikimesh/checksums -name '*.sha256' -print0 | sort -z | while IFS= read -r -d '' file; do
+            cat "$file"
+            printf '\n'
+          done > .wikimesh/dist/checksums.txt
+
+      # 上传合并后的 checksums.txt。
+      - name: Upload checksums.txt
+        uses: actions/upload-artifact@v4
+        with:
+          name: checksums.txt
+          path: .wikimesh/dist/checksums.txt
+
+      # 标签构建时下载所有 release 产物，准备发布到 GitHub Release。
+      - name: Download release archives
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wikimesh-*
+          path: .wikimesh/release
+          merge-multiple: true
+
+      # 标签构建时发布 GitHub Release 产物，供 wikimesh update 下载。
+      - name: Publish GitHub release assets
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          fail_on_unmatched_files: true
+          overwrite_files: true
+          generate_release_notes: true
+          make_latest: true
+          files: |
+            .wikimesh/release/wikimesh-linux-amd64.tar.gz
+            .wikimesh/release/wikimesh-linux-arm64.tar.gz
+            .wikimesh/release/wikimesh-darwin-amd64.tar.gz
+            .wikimesh/release/wikimesh-darwin-arm64-metal.tar.gz
+            .wikimesh/release/wikimesh-windows-amd64.zip
+            .wikimesh/dist/checksums.txt

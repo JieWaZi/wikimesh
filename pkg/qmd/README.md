@@ -259,7 +259,7 @@ queryResult, err := store.Query(ctx, "docs", "", qmd.QueryOptions{
 CLI 使用 `FileConfig` 读写 YAML，并通过 `StoreConfig` 转成 SDK 配置：
 
 ```go
-cfg, err := qmd.LoadConfigFile(".wikimesh/wikimesh.yaml")
+cfg, err := qmd.LoadConfigFile(".wikimesh/qmd.yaml")
 if err != nil {
 	log.Fatal(err)
 }

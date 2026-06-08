@@ -2,4 +2,6 @@
 .cache
 .idea
 cmd/wikimesh/wikimesh
-docs
+./docs
+.agents
+wikimesh

@@ -1,6 +1,6 @@
 # Wikimesh
 
-Wikimesh 是一个 Go 实现的本地文档 collection 管理和检索工具。它把文档扫描、索引、embedding、关键词检索、向量检索和混合查询集中在一个可本地运行的 CLI 与 SDK 中，适合给项目文档、知识库和代码说明建立可查询的本地索引。
+Wikimesh 是一个 Go 实现的本地知识库与文档 collection 管理工具。它把结构化 Wiki 工作区、文档扫描、索引、embedding、关键词检索、向量检索和混合查询集中在一个可本地运行的 CLI 与 SDK 中，适合给项目文档、知识库和代码说明建立可查询的本地索引。
 
 项目里的 qmd 能力位于 [`pkg/qmd`](pkg/qmd/README.md)，它是参考 [tobi/qmd](https://github.com/tobi/qmd) 项目设计做出的 Go 简化实现。当前实现以本仓库 Go 代码为准，不要求和上游项目在每个接口、命令和内部细节上完全一致。
 
@@ -9,6 +9,7 @@ Wikimesh 是一个 Go 实现的本地文档 collection 管理和检索工具。�
 ```text
 cmd/wikimesh        CLI 入口，只负责启动命令
 internal/cli       CLI 命令编排、配置加载和 JSON 输出
+internal/ui        CLI logo、中文 help 和集中 i18n 文案
 pkg/qmd            qmd 风格检索 SDK 的公共 API
 pkg/qmd/*          qmd SDK 底层组件：抽取、索引、embedding、llama.cpp 运行时
 ```
@@ -42,6 +43,9 @@ flowchart LR
 
 Wikimesh 当前支持：
 
+- 初始化 Wikimesh 工作区：生成 `raw/`、`wiki/`、`config/` 和运行时入口文件。
+- 读取、搜索和校验 Topic/Workflow 页面。
+- 按 Wiki 类型安装本仓库内置 runtime skills；当前内置 `devwiki`，用于软件工程知识库。
 - 管理 collection：新增、列出、删除和刷新索引。
 - 建立文档索引：扫描 Markdown/文本文件，写入文档级 FTS 和 chunk 索引。
 - 生成向量：对已索引 chunk 写入 embedding 向量，支持按 collection 过滤和强制重建。
@@ -49,6 +53,7 @@ Wikimesh 当前支持：
 - 向量检索：基于 chunk embedding，按文档去重并保留最佳 chunk。
 - 混合查询：同时召回关键词和向量结果，做 RRF 融合，并可接入 query expansion 与 reranker。
 - 本地模型管理：下载配置中的 GGUF 模型，安装 llama.cpp 运行时动态库。
+- 自更新：从 GitHub Release 下载匹配当前平台的 Wikimesh 产物，校验 `checksums.txt` 后替换当前正在运行的可执行文件。
 
 ## 快速使用
 
@@ -60,39 +65,44 @@ make build
 .wikimesh/bin/wikimesh --help
 ```
 
-首次使用时，CLI 会按需生成 `.wikimesh/wikimesh.yaml`。也可以手动添加 collection：
+更新当前安装的 Wikimesh 可执行文件：
 
 ```sh
-wikimesh collection add ./docs --name docs
-wikimesh collection list
-wikimesh collection update docs
+wikimesh update
+```
+
+首次使用时，`wikimesh init` 会生成 `.wikimesh/qmd.yaml`。也可以手动添加 collection：
+
+```sh
+wikimesh init "My Project" --agent codex --code-dir . --yes
+wikimesh qmd collection add ./docs --name docs
+wikimesh qmd collection list
+wikimesh qmd collection update docs
 ```
 
 如果需要向量检索或混合查询，先下载模型、安装本地运行时并生成 embedding：
 
 ```sh
-wikimesh model download all
-wikimesh model lib install
-wikimesh embed --collection docs
+wikimesh qmd model download all
+wikimesh qmd model lib install
+wikimesh qmd embed --collection docs
 ```
 
 执行检索：
 
 ```sh
-wikimesh search "collection 配置"
-wikimesh vsearch "如何刷新文档索引"
-wikimesh query "Wikimesh 如何执行混合查询？" --no-rerank
+wikimesh search topic "功能边界"
+wikimesh read topic <slug> --view core
+wikimesh qmd search "collection 配置"
+wikimesh qmd vsearch "如何刷新文档索引"
+wikimesh qmd query "Wikimesh 如何执行混合查询？" --no-rerank
 ```
 
-所有检索命令默认输出 JSON，便于脚本或其他工具消费。
+`wikimesh qmd search`、`wikimesh qmd vsearch` 和 `wikimesh qmd query` 默认输出 JSON，便于脚本或其他工具消费；`wikimesh search` 面向 Wiki 页面导航，默认输出 Markdown 表格。
 
 ## 配置文件
 
-默认配置路径是 `.wikimesh/wikimesh.yaml`，也可以通过 `--config` 或 `-c` 指定：
-
-```sh
-wikimesh --config ./wikimesh.yaml collection list
-```
+默认 qmd 配置路径是当前 Wikimesh 工作区的 `.wikimesh/qmd.yaml`。根命令不再提供全局 `--config`，qmd 会直接读取当前工作区配置。
 
 一个最小配置示例：
 
@@ -118,6 +128,18 @@ collections:
 ```sh
 gofmt -w <changed-go-files>
 go test ./...
+```
+
+涉及 `skills/devwiki/share-references` 的共享 reference 时，先运行：
+
+```sh
+wikimesh skill refs sync
+```
+
+本仓库提供 `.githooks/pre-commit` 作为本地提交前校验入口。首次启用需执行：
+
+```sh
+git config core.hooksPath .githooks
 ```
 
 涉及架构边界、依赖关系或公共 API 时，还应运行：

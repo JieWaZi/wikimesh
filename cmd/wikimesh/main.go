@@ -1,16 +1,31 @@
 package main
 
 import (
-	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 
 	"github.com/JieWaZi/wikimesh/internal/cli"
 )
 
 func main() {
-	if err := cli.Run(context.Background(), os.Args[1:], os.Stdout, os.Stderr); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(1)
+	os.Exit(run(os.Stderr))
+}
+
+func run(stderr io.Writer) int {
+	if err := cli.NewRootCmd().Execute(); err != nil {
+		return reportCLIError(err, stderr)
 	}
+	return 0
+}
+
+func reportCLIError(err error, stderr io.Writer) int {
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return exitErr.ExitCode()
+	}
+	_, _ = fmt.Fprintln(stderr, err)
+	return 1
 }
