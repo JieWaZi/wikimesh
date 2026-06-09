@@ -25,7 +25,7 @@ func SearchPagesWithQMD(ctx context.Context, out io.Writer, root, kind string, q
 	if err != nil {
 		return false, err
 	}
-	if err := absolutizeWikiQMDConfig(root, &cfg); err != nil {
+	if err := AbsolutizeQMDConfig(root, &cfg); err != nil {
 		return false, err
 	}
 	store, err := qmdapp.OpenStoreFromConfig(ctx, cfg)
@@ -50,8 +50,8 @@ func SearchPagesWithQMD(ctx context.Context, out io.Writer, root, kind string, q
 	return true, nil
 }
 
-// absolutizeWikiQMDConfig 把工作区相对 qmd 路径转为绝对路径，支持 --root 从任意目录搜索。
-func absolutizeWikiQMDConfig(root string, cfg *qmd.FileConfig) error {
+// AbsolutizeQMDConfig 把工作区相对 qmd 路径转为绝对路径，支持 --root 从任意目录搜索。
+func AbsolutizeQMDConfig(root string, cfg *qmd.FileConfig) error {
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
 		return err
