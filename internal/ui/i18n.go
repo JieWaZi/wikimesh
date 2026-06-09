@@ -44,6 +44,8 @@ type Catalog struct {
 	WikiReadShort string
 	// WikiSearchShort 是 search 命令说明。
 	WikiSearchShort string
+	// WikiQueryShort 是 query 命令说明。
+	WikiQueryShort string
 	// WikiGlossaryShort 是 glossary 分组说明。
 	WikiGlossaryShort string
 	// WikiGlossaryKeywordsShort 是 glossary keywords 命令说明。
@@ -216,6 +218,8 @@ type Catalog struct {
 	FlagRawVector string
 	// FlagQueries 是 queries 参数说明。
 	FlagQueries string
+	// FlagSearchQuery 是 search-query 参数说明。
+	FlagSearchQuery string
 	// FlagIntent 是 intent 参数说明。
 	FlagIntent string
 	// FlagCandidateLimit 是 candidate-limit 参数说明。
@@ -366,6 +370,7 @@ var defaultCatalog = Catalog{
 	WikiUpdateShort:                     "更新当前 Wikimesh 可执行文件",
 	WikiReadShort:                       "读取 Wikimesh 页面视图",
 	WikiSearchShort:                     "搜索 Wikimesh 知识库",
+	WikiQueryShort:                      "对 Wikimesh 项目执行语义查询",
 	WikiGlossaryShort:                   "查看 Wikimesh 术语表",
 	WikiGlossaryKeywordsShort:           "列出 Wikimesh 术语关键词",
 	WikiRepoShort:                       "管理 Wikimesh 项目来源",
@@ -452,6 +457,7 @@ var defaultCatalog = Catalog{
 	FlagCollectionFilter:                "文档集合过滤，可重复传入多个集合",
 	FlagRawVector:                       "使用原始向量搜索，不执行查询扩展",
 	FlagQueries:                         "预扩展查询 JSON",
+	FlagSearchQuery:                     "辅助关键词 query，可重复传入多个 query 后只做 FTS 召回并参与 RRF 融合",
 	FlagIntent:                          "领域意图提示",
 	FlagCandidateLimit:                  "重排前最大候选数量",
 	FlagExplain:                         "输出 RRF/重排解释信息",

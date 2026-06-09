@@ -889,7 +889,7 @@ func initializeWikiQMDCollection(ctx context.Context, targetDir string, projectS
 	defer store.Close()
 
 	// collection 名称与项目 slug 保持一致，让 qmd 查询和用户级项目配置可以直接对应。
-	collection := qmd.Collection{Name: projectSlug, Path: "wiki", Pattern: "**/*.md"}
+	collection := qmd.Collection{Name: projectSlug, Path: filepath.Join(targetDir, "wiki"), Pattern: "**/*.md"}
 	return common.AddQMDCollectionAndSync(ctx, cfg, configPath, store, collection)
 }
 

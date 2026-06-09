@@ -105,8 +105,9 @@ Workflow `card` 只用于判断是否命中这条实现链路，不写完整入�
 ```bash
 wikimesh check document
 wikimesh check graph
-wikimesh qmd collection update docs --project <project>
-wikimesh qmd embed --project <project>
+# 在文档库本地 source 根目录执行
+wikimesh qmd collection update docs
+wikimesh qmd embed
 ```
 
 ## Workflow Proposal

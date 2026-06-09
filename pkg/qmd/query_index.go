@@ -3,6 +3,7 @@ package qmd
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"sort"
 	"strings"
 )
@@ -131,9 +132,16 @@ func (s *Store) queryQMD(ctx context.Context, collection string, question string
 // queryRetrievalLists 构造 qmd 的多路检索列表。
 // 关键边界：QueryExpander 只在 query 层调用一次，lex 只进 FTS，vec/hyde 只进单次向量检索。
 func (s *Store) queryRetrievalLists(ctx context.Context, collection, question string, opts QueryOptions, limit int) ([]queryList, string, error) {
+	searchQueries := normalizeSearchQueries(opts.SearchQueries)
+	if len(opts.Queries) > 0 && len(searchQueries) > 0 {
+		return nil, "", errors.New("query options cannot set both Queries and SearchQueries")
+	}
 	if len(opts.Queries) > 0 {
 		lists, primaryQuestion, err := s.queryStructuredRetrievalLists(ctx, collection, opts.Queries, limit)
 		return lists, primaryQuestion, err
+	}
+	if len(searchQueries) > 0 {
+		return s.querySearchRetrievalLists(ctx, collection, question, searchQueries, limit)
 	}
 	lists := []queryList{}
 	addFTSResults := func(queryType, query string, weight float64, results []SearchResult) {
@@ -194,6 +202,42 @@ func (s *Store) queryRetrievalLists(ctx context.Context, collection, question st
 		}
 	}
 	return lists, question, nil
+}
+
+// querySearchRetrievalLists 执行调用方显式传入的普通多 query 检索路径。
+// 主问题仍走原始 FTS/Vector，辅助 query 只进 FTS，避免多关键词查询成倍触发向量检索。
+func (s *Store) querySearchRetrievalLists(ctx context.Context, collection, question string, queries []string, limit int) ([]queryList, string, error) {
+	lists := []queryList{}
+	primaryQuestion := strings.TrimSpace(question)
+	if primaryQuestion == "" && len(queries) > 0 {
+		primaryQuestion = queries[0]
+	}
+	addList := func(source, queryType, query string, weight float64, results []SearchResult) {
+		if len(results) == 0 {
+			return
+		}
+		lists = append(lists, queryList{source: source, queryType: queryType, query: query, weight: weight, results: results})
+	}
+	if primaryQuestion != "" {
+		results, err := s.Search(ctx, collection, primaryQuestion, SearchOptions{Limit: limit})
+		if err != nil {
+			return nil, "", err
+		}
+		addList("fts", "original", primaryQuestion, 2.0, results)
+		vectorResults, err := s.queryVectorSearchOnce(collection, primaryQuestion, limit)
+		if err != nil {
+			return nil, "", err
+		}
+		addList("vec", "original", primaryQuestion, 2.0, vectorResults)
+	}
+	for _, query := range queries {
+		results, err := s.Search(ctx, collection, query, SearchOptions{Limit: limit})
+		if err != nil {
+			return nil, "", err
+		}
+		addList("fts", "search", query, 1.0, results)
+	}
+	return lists, primaryQuestion, nil
 }
 
 // queryStructuredRetrievalLists 执行 qmd structuredSearch 的预展开查询路径。

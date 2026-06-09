@@ -118,6 +118,7 @@ wikimesh repo use <project> <local|remote>
 wikimesh search index <query...> --project <project>
 wikimesh search glossary <query...> --project <project>
 wikimesh search workflow <query...> --project <project>
+wikimesh query <question...> --project <project>
 wikimesh read workflow <slug> --view core --project <project>
 wikimesh server --project <project> --host 0.0.0.0 --port 5697
 wikimesh graph --project <project> --host 127.0.0.1 --port 5696
@@ -135,7 +136,7 @@ wikimesh graph --project <project> --host 127.0.0.1 --port 5696
 - 代码问题：`workflows → topics → rg`
 - 排障问题：先找相关 workflow/topic；troubleshooting 是排障知识目录，v1 统一 CLI 读取类型仍只使用 `topic|workflow`
 
-检索通道按成本升档：`wikimesh search index/glossary`、`wikimesh search topic/workflow`、`wikimesh qmd query`。`qmd` 只是召回工具，不是真相源。
+检索通道按成本升档：`wikimesh search index/glossary`、`wikimesh search topic/workflow`、`wikimesh query`。query 只是召回工具，不是真相源。
 
 ## Workflow 约束
 

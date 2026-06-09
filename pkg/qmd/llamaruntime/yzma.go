@@ -48,7 +48,7 @@ func EnsureLoaded() error {
 		return nil
 	}
 	if !libraryExists(libDir) {
-		return fmt.Errorf("llama.cpp libraries not found in %s; run `wikimesh model lib install` or `make install-llama`, or set WIKIMESH_YZMA_LIB/YZMA_LIB", libDir)
+		return fmt.Errorf("llama.cpp libraries not found in %s; run `wikimesh qmd model lib install` or `make install-llama`, or set WIKIMESH_YZMA_LIB/YZMA_LIB", libDir)
 	}
 	configureProcessEnvironment()
 	if err := llama.Load(libDir); err != nil {

@@ -35,7 +35,7 @@ Troubleshooting 是排障页：故障现象、日志、诊断路径、恢复步�
 | 判断页面边界、事实来源或证据放置时 | `references/evidence-grounding.md` |
 | 判断内容应该放入 card、core、explain 还是保留 raw 时 | `references/knowledge-placement.md` |
 | 检查已有 Wiki、结构化搜索、读取关联 topic/workflow 时 | `references/devwiki.md` |
-| 需要语义升档或向量检索时 | 继续按 `references/devwiki.md` 使用 `wikimesh qmd query`；需要向量检索前先执行或确认 `wikimesh qmd embed` |
+| 需要语义升档时 | 先按 `references/devwiki.md` 判断是否进入第 3 档；需要时再加载 `references/query-rules.md` 使用 `wikimesh query` |
 | 需要结合当前代码、核对实现或写入代码定位时 | `references/code-tracing.md` |
 | 更新 `wiki/index.md`、`wiki/glossary.md` 或 `wiki/log.md` 时 | `references/common-file-format.md` |
 | 确认要生成 Topic 页面正文时 | 加载 `devwiki-topic` |
@@ -101,7 +101,7 @@ Troubleshooting 是排障页：故障现象、日志、诊断路径、恢复步�
 
 1. 先读取或搜索 `wiki/index.md`、`wiki/glossary.md`。
 2. 再搜索 `wiki/topics/`、`wiki/workflows/`、`wiki/troubleshooting/`。
-3. `wikimesh search index/glossary` 命中低置信、噪声过大或无法排序时，按 `references/devwiki.md` 升档到 `wikimesh search <topic|workflow> <query...>`；仍不足且问题属于概念、设计、意图或跨页面关系时，直接使用 `wikimesh qmd query <question>`。
+3. `wikimesh search index/glossary` 命中低置信、噪声过大或无法排序时，按 `references/devwiki.md` 升档到 `wikimesh search <topic|workflow> <query...>`；仍不足且问题属于概念、设计、意图或跨页面关系时，加载 `references/query-rules.md` 后使用 `wikimesh query <question...> --project <project>`。
 4. 如果 `wikimesh search topic/workflow` / `qmd search` 报错、超时、collection 未注册或 cache 不可写，降级为 `wikimesh search index/glossary`，并在 proposal 中说明本轮 qmd 不可用。
 
 ### Phase 4：分类和控粒度
@@ -187,8 +187,9 @@ Ingest 是编排器，只生成 TopicTask / WorkflowTask / TroubleshootingTask�
 6. 执行或提示执行：
 
 ```bash
-wikimesh qmd collection update docs --project <project>
-wikimesh qmd embed --project <project>
+# 在文档库本地 source 根目录执行
+wikimesh qmd collection update docs
+wikimesh qmd embed
 ```
 
 7. 如果本次修改了 `wiki/topics/` 或 `wiki/workflows/`，必须执行：

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"path/filepath"
+	"sort"
 	"strings"
 	"unicode"
 )
@@ -13,6 +14,7 @@ import (
 // searchCandidateMultiplier 是 collection 查询时的 FTS 候选池倍数。
 // collection 过滤发生在 FTS 候选之后，因此需要按最终 limit 放大候选池。
 const searchCandidateMultiplier = 10
+const searchManyRRFK = 60.0
 
 // searchFTSRecord 是写入 documents_fts 的文档级全文索引记录。
 type searchFTSRecord struct {
@@ -140,6 +142,80 @@ func normalizeSearchLimit(limit int) int {
 		return 20
 	}
 	return limit
+}
+
+func normalizeSearchQueries(raw []string) []string {
+	queries := make([]string, 0, len(raw))
+	for _, query := range raw {
+		query = strings.TrimSpace(query)
+		if query == "" {
+			continue
+		}
+		queries = append(queries, query)
+	}
+	return queries
+}
+
+func fuseSearchResultSets(resultSets [][]SearchResult, limit int, minScore float64) []SearchResult {
+	type fusedResult struct {
+		result SearchResult
+		score  float64
+		order  int
+	}
+	fused := map[string]*fusedResult{}
+	order := 0
+	for _, results := range resultSets {
+		for rank, result := range results {
+			key := result.ID
+			if key == "" {
+				key = result.Collection + "/" + result.Path
+			}
+			if key == "/" {
+				continue
+			}
+			item, ok := fused[key]
+			if !ok {
+				item = &fusedResult{result: result, order: order}
+				fused[key] = item
+				order++
+			}
+			item.score += 1 / (searchManyRRFK + float64(rank+1))
+		}
+	}
+	if len(fused) == 0 {
+		return nil
+	}
+	items := make([]fusedResult, 0, len(fused))
+	maxScore := 0.0
+	for _, item := range fused {
+		items = append(items, *item)
+		if item.score > maxScore {
+			maxScore = item.score
+		}
+	}
+	sort.SliceStable(items, func(i, j int) bool {
+		if items[i].score == items[j].score {
+			return items[i].order < items[j].order
+		}
+		return items[i].score > items[j].score
+	})
+	results := make([]SearchResult, 0, minInt(limit, len(items)))
+	for _, item := range items {
+		result := item.result
+		if maxScore > 0 {
+			result.Score = item.score / maxScore
+		} else {
+			result.Score = 0
+		}
+		if minScore > 0 && result.Score < minScore {
+			continue
+		}
+		results = append(results, result)
+		if len(results) >= limit {
+			break
+		}
+	}
+	return results
 }
 
 // indexSearchDocument 在同一个写事务内刷新 Search 专用 FTS 记录。

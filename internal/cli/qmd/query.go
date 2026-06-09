@@ -17,6 +17,7 @@ import (
 type queryCLIOptions struct {
 	question       string
 	queriesJSON    string
+	searchQueries  []string
 	intent         string
 	limit          int
 	minScore       float64
@@ -33,7 +34,7 @@ func newQueryCommand() *cobra.Command {
 		Use:   "query <question...>",
 		Short: msg.QueryShort,
 		Args: func(cmd *cobra.Command, args []string) error {
-			if strings.TrimSpace(opts.queriesJSON) != "" {
+			if strings.TrimSpace(opts.queriesJSON) != "" || len(opts.searchQueries) > 0 {
 				return nil
 			}
 			return cobra.MinimumNArgs(1)(cmd, args)
@@ -52,6 +53,7 @@ func newQueryCommand() *cobra.Command {
 	cmd.Flags().Float64Var(&opts.minScore, "min-score", 0, msg.FlagMinScore)
 	cmd.Flags().StringArrayVarP(&collections, "collection", "c", nil, msg.FlagCollectionFilter)
 	cmd.Flags().StringVar(&opts.queriesJSON, "queries", "", msg.FlagQueries)
+	cmd.Flags().StringArrayVar(&opts.searchQueries, "search-query", nil, msg.FlagSearchQuery)
 	cmd.Flags().StringVar(&opts.intent, "intent", "", msg.FlagIntent)
 	cmd.Flags().IntVar(&opts.candidateLimit, "candidate-limit", 0, msg.FlagCandidateLimit)
 	cmd.Flags().BoolVar(&opts.explain, "explain", false, msg.FlagExplain)
@@ -90,6 +92,7 @@ func runTopLevelQuery(ctx context.Context, out io.Writer, store *qmd.Store, coll
 			SkipRerank:     opts.noRerank,
 			Intent:         opts.intent,
 			Queries:        queries,
+			SearchQueries:  opts.searchQueries,
 		})
 		if err != nil {
 			return err

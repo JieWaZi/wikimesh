@@ -15,7 +15,7 @@ argument-hint: "<功能名称、接口 URL、关键文件、关键函数、路�
 - 涉及写入、重分类或破坏性操作时，再读 `references/mutation-safety.md`
 - 涉及代码追踪、代码归因或实现核对时，再读 `references/code-tracing.md`
 - 涉及 `wiki/index.md`、`wiki/glossary.md` 或 `wiki/log.md` 更新时，再读 `references/common-file-format.md`
-- 需要语义升档时，按 `references/devwiki.md` 直接使用 `wikimesh qmd query`；需要向量检索前先执行或确认 `wikimesh qmd embed`
+- 需要语义升档时，先按 `references/devwiki.md` 判断是否进入第 3 档；需要时再加载 `references/query-rules.md` 使用 `wikimesh query`
 
 生成或更新页面时，不在本 Skill 内重新定义模板，直接转交对应页面 Skill：
 
@@ -188,8 +188,9 @@ Topic 同步建议必须说明哪些代码结论可以用用户视角表达，�
 ```bash
 wikimesh check document
 wikimesh check graph
-wikimesh qmd collection update docs --project <project>
-wikimesh qmd embed --project <project>
+# 在文档库本地 source 根目录执行
+wikimesh qmd collection update docs
+wikimesh qmd embed
 ```
 
 ## 禁止事项

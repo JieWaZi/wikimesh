@@ -9,6 +9,16 @@ references:
       - topic/references/devwiki.md
       - workflow/references/devwiki.md
 
+  query-rules.md:
+    targets:
+      - query/references/query-rules.md
+      - code/references/query-rules.md
+      - code-to-doc/references/query-rules.md
+      - ingest/references/query-rules.md
+      - maintain/references/query-rules.md
+      - topic/references/query-rules.md
+      - workflow/references/query-rules.md
+
   code-tracing.md:
     targets:
       - code/references/code-tracing.md

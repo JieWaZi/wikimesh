@@ -26,7 +26,7 @@ index/glossary   = query 入口控制层
 - `references/code-tracing.md`：涉及代码核对、代码归因或最新实现时读取。
 - `references/mutation-safety.md`：涉及删除、重命名、拆分、合并、破坏性操作或高风险冲突时读取。
 - `references/common-file-format.md`：涉及 `wiki/index.md`、`wiki/glossary.md` 或 `wiki/log.md` 更新时读取。
-- 需要语义升档时，按 `references/devwiki.md` 直接使用 `wikimesh qmd query`；需要向量检索前先执行或确认 `wikimesh qmd embed`。
+- 需要语义升档时，先按 `references/devwiki.md` 判断是否进入第 3 档；需要时再加载 `references/query-rules.md` 使用 `wikimesh query`。
 
 ## 维护目标
 
@@ -190,8 +190,9 @@ visibility: internal
 写入后按影响面验证：
 
 ```bash
-wikimesh qmd collection update docs --project <project>
-wikimesh qmd embed --project <project>
+# 在文档库本地 source 根目录执行
+wikimesh qmd collection update docs
+wikimesh qmd embed
 ```
 
 如果维护动作涉及 topic / workflow 的关系、重命名、拆分、合并、断链或入口修复，还必须执行：

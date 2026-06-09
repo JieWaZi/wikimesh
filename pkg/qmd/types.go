@@ -439,6 +439,10 @@ type QueryOptions struct {
 
 	// Queries 是预先展开的 typed queries；设置后跳过自动 QueryExpander。
 	Queries []QueryExpansion
+
+	// SearchQueries 是调用方显式提供的辅助关键词 query 列表。
+	// 主问题仍走原始 FTS/Vector；这些 query 只做 FTS 召回并通过 RRF 融合，设置后跳过自动 QueryExpander。
+	SearchQueries []string
 }
 
 // QueryResult 是 Query 的返回值。

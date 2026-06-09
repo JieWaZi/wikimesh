@@ -10,6 +10,7 @@ import (
 
 	"github.com/JieWaZi/wikimesh/internal/cli/common"
 	"github.com/JieWaZi/wikimesh/internal/ui"
+	"github.com/JieWaZi/wikimesh/pkg/qmd"
 )
 
 func TestRunWikiInitInstallsSkillsFromResolvedGitHubBundle(t *testing.T) {
@@ -186,7 +187,7 @@ func TestRunWikiInitReportsSkillFetchSource(t *testing.T) {
 	})
 
 	for _, want := range []string{
-		"获取 Wikimesh runtime skills",
+		"获取 Wikimesh skills",
 		"https://github.com/JieWaZi/wikimesh/tree/main/skills/devwiki",
 	} {
 		if !strings.Contains(output, want) {
@@ -295,6 +296,46 @@ func TestRunWikiInitCreateUsesProjectSlugDirectory(t *testing.T) {
 	}
 	if cfg.Sources.Local == nil || !samePath(t, cfg.Sources.Local.Path, targetDir) {
 		t.Fatalf("local source = %#v, want %s", cfg.Sources.Local, targetDir)
+	}
+}
+
+func TestRunWikiInitCreateAnchorsQMDCollectionToProjectDirectory(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	root := t.TempDir()
+	chdirInitTest(t, root)
+	stubWikiSkillResolver(t)
+
+	err := runWikiInit(context.Background(), io.Discard, false, InitOptions{
+		ProjectName: "Huawei ZDDI Wiki New",
+		Agent:       "codex",
+		Yes:         true,
+	})
+	if err != nil {
+		t.Fatalf("runWikiInit error = %v", err)
+	}
+
+	targetDir := filepath.Join(root, "huawei-zddi-wiki-new")
+	cfg, err := qmd.LoadConfigFile(filepath.Join(targetDir, ".wikimesh", "qmd.yaml"))
+	if err != nil {
+		t.Fatalf("LoadConfigFile error = %v", err)
+	}
+	if len(cfg.Collections) != 1 {
+		t.Fatalf("collections = %#v, want one collection", cfg.Collections)
+	}
+	got := cfg.Collections[0].Path
+	if got == filepath.Join(root, "wiki") {
+		t.Fatalf("qmd collection path = %q, want project wiki directory under %s", got, targetDir)
+	}
+	if got == "wiki" {
+		return
+	}
+	if _, err := os.Stat(got); err != nil {
+		t.Fatalf("qmd collection path = %q is not an existing project wiki directory: %v", got, err)
+	}
+	if !samePath(t, got, filepath.Join(targetDir, "wiki")) {
+		t.Fatalf("qmd collection path = %q, want wiki or %s", got, filepath.Join(targetDir, "wiki"))
 	}
 }
 

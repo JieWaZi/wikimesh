@@ -141,6 +141,27 @@ func TestSearchMatchesReferenceCandidateLimit(t *testing.T) {
 	assertSearchMatchesReference(t, current, reference)
 }
 
+func TestSearchManyFusesIndependentQueriesWithRRF(t *testing.T) {
+	ctx := context.Background()
+	store := newReferenceSearchFixture(t, 0)
+	defer store.Close()
+
+	hits, err := store.SearchMany(ctx, "docs", []string{"root hint", "operational"}, SearchOptions{Limit: 5})
+	if err != nil {
+		t.Fatalf("SearchMany: %v", err)
+	}
+	paths := searchResultPaths(hits)
+	if !strings.HasPrefix(paths, "ops/runbooks/dns.md,") {
+		t.Fatalf("paths = %s, want document matching both queries first", paths)
+	}
+	if !strings.Contains(paths, "root-hint.md") {
+		t.Fatalf("paths = %s, want result from first independent query", paths)
+	}
+	if hits[0].Score != 1 {
+		t.Fatalf("top fused score = %.6f, want normalized score 1", hits[0].Score)
+	}
+}
+
 func TestBuildSearchFTSQueryMatchesLexSyntaxBoundaries(t *testing.T) {
 	cases := []struct {
 		name  string

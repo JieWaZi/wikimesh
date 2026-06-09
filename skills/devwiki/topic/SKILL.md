@@ -139,8 +139,9 @@ Topic 编写时先判断知识的查询频率、决策价值、稳定性和体�
 ```bash
 wikimesh check document
 wikimesh check graph
-wikimesh qmd collection update docs --project <project>
-wikimesh qmd embed --project <project>
+# 在文档库本地 source 根目录执行
+wikimesh qmd collection update docs
+wikimesh qmd embed
 ```
 
 ## Topic Proposal

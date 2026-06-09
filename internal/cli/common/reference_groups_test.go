@@ -31,6 +31,7 @@ func TestDevwikiSharedReferencesAreComplete(t *testing.T) {
 		"evidence-grounding.md",
 		"knowledge-placement.md",
 		"mutation-safety.md",
+		"query-rules.md",
 		"devwiki.md",
 	}
 	entries, err := os.ReadDir(sharedRoot)
@@ -58,6 +59,7 @@ func TestDevwikiSkillReferencesAreMinimal(t *testing.T) {
 	expected := map[string][]string{
 		"code": {
 			"code-tracing.md",
+			"query-rules.md",
 			"devwiki.md",
 		},
 		"code-to-doc": {
@@ -65,6 +67,7 @@ func TestDevwikiSkillReferencesAreMinimal(t *testing.T) {
 			"common-file-format.md",
 			"evidence-grounding.md",
 			"mutation-safety.md",
+			"query-rules.md",
 			"devwiki.md",
 		},
 		"ingest": {
@@ -73,6 +76,7 @@ func TestDevwikiSkillReferencesAreMinimal(t *testing.T) {
 			"evidence-grounding.md",
 			"knowledge-placement.md",
 			"mutation-safety.md",
+			"query-rules.md",
 			"devwiki.md",
 		},
 		"maintain": {
@@ -80,9 +84,11 @@ func TestDevwikiSkillReferencesAreMinimal(t *testing.T) {
 			"common-file-format.md",
 			"evidence-grounding.md",
 			"mutation-safety.md",
+			"query-rules.md",
 			"devwiki.md",
 		},
 		"query": {
+			"query-rules.md",
 			"devwiki.md",
 		},
 		"topic": {
@@ -90,6 +96,7 @@ func TestDevwikiSkillReferencesAreMinimal(t *testing.T) {
 			"evidence-grounding.md",
 			"knowledge-placement.md",
 			"mutation-safety.md",
+			"query-rules.md",
 			"topic_template.md",
 			"devwiki.md",
 		},
@@ -99,6 +106,7 @@ func TestDevwikiSkillReferencesAreMinimal(t *testing.T) {
 			"evidence-grounding.md",
 			"knowledge-placement.md",
 			"mutation-safety.md",
+			"query-rules.md",
 			"workflow_template.md",
 			"devwiki.md",
 		},

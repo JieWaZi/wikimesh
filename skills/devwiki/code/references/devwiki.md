@@ -18,7 +18,7 @@
 基础顺序：
 
 ```text
-意图识别 → 必要时 glossary keywords 术语对齐 → wikimesh search index → wikimesh search glossary → wikimesh search topic/workflow → wikimesh qmd query → raw/code 核对
+意图识别 → 必要时 glossary keywords 术语对齐 → wikimesh search index → wikimesh search glossary → wikimesh search topic/workflow → 必要时加载 query-rules.md 后使用 wikimesh query → raw/code 核对
 ```
 
 任一阶段拿到足够强的 top-K 且置信足够即停；不要为了“保险”无边界扩大搜索。
@@ -31,7 +31,7 @@
 | `explain_topic` | 某功能是什么、怎么工作、有哪些边界 | `wikimesh search index/glossary`；低置信或噪声大时升到 `wikimesh search topic` |
 | `trace_implementation` | 怎么实现、调用链怎么走、状态写到哪里 | query 场景先读 Wiki/workflow；缺少代码锚点且明确要求当前代码核查时，建议显式使用 `$devwiki-code` |
 | `troubleshoot` | 报错原因、不生效怎么查、日志从哪里来 | 先找 workflow/topic 候选；troubleshooting 可作为页面内容和导航线索，再按需核对 raw/code |
-| `design_intent` | 为什么这么设计、整体架构是什么 | `wikimesh search index/glossary`；不足时 `wikimesh search`，再不足才 `wikimesh qmd query` |
+| `design_intent` | 为什么这么设计、整体架构是什么 | `wikimesh search index/glossary`；不足时 `wikimesh search`，再不足才加载 `references/query-rules.md` 使用 `wikimesh query` |
 | `wiki_maintenance` | 页面是否重复、过期、冲突、query 是否会命中旧内容 | 本地 Wiki 审计 + `wikimesh search/status/update` 按需验证 |
 
 不要把所有关键词都当成精确锚点。`ssh`、`vip`、`auth`、`token`、`query`、`sync` 这类短词只是中锚点；如果用户问“怎么实现 / 怎么设计 / 怎么排障”，不能因为本地命中这些短词就停止。
@@ -197,7 +197,7 @@ wikimesh search index <query...> --project <project>
 wikimesh search glossary <query...> --project <project>
 ```
 
-`glossary keywords` 逐行返回 glossary 关键词，只用于术语对齐。`search index` 默认输出 `|type|description|slug|` pipe table；`search glossary` 默认输出 `|glossary|type|description|slug|` pipe table；在 `--project` 下由 CLI 根据统一配置选择本地文档库或远端 HTTP API，不输出 `score`。agent 必须根据 `description`、card 和用户问题做语义打分。
+`glossary keywords` 逐行返回 glossary 关键词，只用于术语对齐。`search index` 默认输出 `|slug|type|description|` pipe table；`search glossary` 默认输出 `|slug|glossary|type|description|` pipe table；在 `--project` 下由 CLI 根据统一配置选择本地文档库或远端 HTTP API，不输出 `score`。agent 必须根据 `description`、card 和用户问题做语义打分。
 
 结构化搜索置信判断：
 
@@ -219,20 +219,18 @@ wikimesh search workflow 防脑裂 网关 ha-group gateway --project <project>
 ```
 
 - 多个关键词应作为多个参数传入，不要合并成一个带空格的字符串。
-- 多 query 结果使用 RRF（Reciprocal Rank Fusion）按各关键词下的排名融合排序，`score` 为融合后的相对百分比。
+- 多 query 结果使用 RRF（Reciprocal Rank Fusion）按各关键词下的排名融合排序，`score` 为融合后的相对分。
 - `wikimesh search topic/workflow` 底层调用 `qmd search`，不依赖向量，CPU 友好，适合作为结构化入口搜索的升档。
-- `wikimesh search topic/workflow` 默认输出 `|file|slug|title|score|` pipe table。
+- `wikimesh search topic/workflow` 默认输出 `|slug|title|score|` pipe table。
 - `wikimesh search` 命中只是候选排序，最终结论必须回到真实 `wiki/`、`raw/` 或已核对代码文件。
 
-### 第 3 档：qmd Query
+### 第 3 档：Semantic Query
 
-只有 `wikimesh search` 和结构化入口搜索仍不足，且问题本身是概念、设计、意图、跨页面关系类时，才直接升到 `wikimesh qmd query <question> --project <project>`。
+只有 `wikimesh search` 和结构化入口搜索仍不足，且问题本身是概念、设计、意图、跨页面关系、排障链路或维护审计类时，才加载 `references/query-rules.md` 并使用 `wikimesh query <question...> --project <project>`。
 
-需要向量检索前，先执行或确认本地工作区已完成：
-
-```bash
-wikimesh qmd embed --project <project>
-```
+- `wikimesh query` 的位置参数是一句完整自然语言问题，不是多个关键词。
+- 多关键词召回继续优先使用 `wikimesh search topic/workflow <query...>`。
+- query 参数、`--search-query` 辅助锚点、`--intent` 写法、limit 建议和 fallback 规则全部放在 `references/query-rules.md`，需要进入第 3 档时再加载。
 
 ### qmd 失败 fallback
 

@@ -14,7 +14,7 @@ import (
 type searchOptions struct {
 	Stdout      io.Writer
 	Collections []string
-	Query       string
+	Queries     []string
 	Limit       int
 	MinScore    float64
 	All         bool
@@ -43,8 +43,8 @@ func newSearchCommand(vector bool) *cobra.Command {
 			}
 			defer store.Close()
 			opts.Stdout = cmd.OutOrStdout()
-			opts.Query = strings.Join(args, " ")
-			return runTopLevelSearch(cmd.Context(), opts.Stdout, store, opts.Collections, opts.Query, opts.Limit, opts.MinScore, opts.All, opts.Vector, opts.RawVector)
+			opts.Queries = args
+			return runTopLevelSearch(cmd.Context(), opts.Stdout, store, opts.Collections, opts.Queries, opts.Limit, opts.MinScore, opts.All, opts.Vector, opts.RawVector)
 		},
 	}
 	cmd.Flags().IntVarP(&opts.Limit, "limit", "n", 20, msg.FlagLimit)
@@ -58,7 +58,7 @@ func newSearchCommand(vector bool) *cobra.Command {
 }
 
 // runTopLevelSearch 使用 qmd store 执行关键词或向量检索并输出 JSON。
-func runTopLevelSearch(ctx context.Context, out io.Writer, store *qmd.Store, collections []string, query string, limit int, minScore float64, all bool, vector bool, rawVector bool) error {
+func runTopLevelSearch(ctx context.Context, out io.Writer, store *qmd.Store, collections []string, queries []string, limit int, minScore float64, all bool, vector bool, rawVector bool) error {
 	targets, err := resolveSearchCollections(ctx, store, collections)
 	if err != nil {
 		return err
@@ -84,6 +84,7 @@ func runTopLevelSearch(ctx context.Context, out io.Writer, store *qmd.Store, col
 
 	var results []qmd.SearchResult
 	if vector {
+		query := strings.Join(queries, " ")
 		if minScore == 0 && !rawVector {
 			minScore = 0.3
 		}
@@ -93,7 +94,7 @@ func runTopLevelSearch(ctx context.Context, out io.Writer, store *qmd.Store, col
 			results, err = store.VSearch(ctx, searchCollection, query, qmd.SearchOptions{Limit: searchLimit, MinScore: minScore})
 		}
 	} else {
-		results, err = store.Search(ctx, searchCollection, query, qmd.SearchOptions{Limit: searchLimit, MinScore: minScore})
+		results, err = store.SearchMany(ctx, searchCollection, queries, qmd.SearchOptions{Limit: searchLimit, MinScore: minScore})
 	}
 	if err != nil {
 		return err

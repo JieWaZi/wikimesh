@@ -35,59 +35,92 @@ func runWikiSearch(ctx context.Context, out io.Writer, root, project, kind strin
 	if err != nil {
 		return err
 	}
-	query := strings.ToLower(strings.Join(queries, " "))
+	normalizedQueries := normalizeSearchQueries(queries)
 	switch kind {
 	case "index":
-		return searchWikiTable(out, filepath.Join(resolvedRoot, "wiki/index.md"), []string{"type", "description", "slug"}, query)
+		return searchWikiTable(out, filepath.Join(resolvedRoot, "wiki/index.md"), []string{"slug", "type", "description"}, []int{2, 0, 1}, normalizedQueries)
 	case "glossary":
-		return searchWikiTable(out, filepath.Join(resolvedRoot, "wiki/glossary.md"), []string{"glossary", "type", "description", "slug"}, query)
+		return searchWikiTable(out, filepath.Join(resolvedRoot, "wiki/glossary.md"), []string{"slug", "glossary", "type", "description"}, []int{3, 0, 1, 2}, normalizedQueries)
 	case "topic", "workflow":
-		if ok, err := common.SearchWikiPagesWithQMD(ctx, out, resolvedRoot, kind, strings.Join(queries, " ")); ok || err != nil {
+		if ok, err := common.SearchWikiPagesWithQMD(ctx, out, resolvedRoot, kind, queries); ok || err != nil {
 			return err
 		}
-		return searchWikiPagesLocal(out, resolvedRoot, kind, query)
+		return searchWikiPagesLocal(out, resolvedRoot, kind, normalizedQueries)
 	default:
 		return fmt.Errorf("unsupported wiki search kind %q", kind)
 	}
 }
 
 // searchWikiTable 对 index/glossary 的 Markdown 表格执行包含匹配。
-func searchWikiTable(out io.Writer, path string, headers []string, query string) error {
+func searchWikiTable(out io.Writer, path string, headers []string, columns []int, queries []string) error {
 	rows, err := common.ReadMarkdownTable(path)
 	if err != nil {
 		return err
 	}
 	fmt.Fprintf(out, "|%s|\n", strings.Join(headers, "|"))
 	for _, row := range rows {
-		if query != "" && !strings.Contains(strings.ToLower(strings.Join(row, " ")), query) {
+		if !searchRowMatches(queries, row...) {
 			continue
 		}
-		for len(row) < len(headers) {
+		for len(row) < len(columns) {
 			row = append(row, "")
 		}
-		for i := range row {
-			row[i] = pipeCell(row[i])
+		values := make([]string, 0, len(columns))
+		for _, column := range columns {
+			value := ""
+			if column >= 0 && column < len(row) {
+				value = row[column]
+			}
+			values = append(values, pipeCell(value))
 		}
-		fmt.Fprintf(out, "|%s|\n", strings.Join(row[:len(headers)], "|"))
+		fmt.Fprintf(out, "|%s|\n", strings.Join(values, "|"))
 	}
 	return nil
 }
 
 // searchWikiPagesLocal 在 qmd 索引不可用时扫描本地 Markdown 页面。
-func searchWikiPagesLocal(out io.Writer, root, kind, query string) error {
+func searchWikiPagesLocal(out io.Writer, root, kind string, queries []string) error {
 	pages, err := common.ListWikiPages(root, kind)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(out, "|file|slug|title|score|")
+	fmt.Fprintln(out, "|slug|title|score|")
 	for _, page := range pages {
 		haystack := strings.ToLower(page.Title + "\n" + page.Slug + "\n" + page.Summary + "\n" + page.Text)
-		if query != "" && !strings.Contains(haystack, query) {
+		if !searchHaystackMatches(queries, haystack) {
 			continue
 		}
-		fmt.Fprintf(out, "|%s|%s|%s|%s|\n", pipeCell(filepath.Base(page.Rel)), pipeCell(page.Slug), pipeCell(page.Title), "100%")
+		fmt.Fprintf(out, "|%s|%s|%s|\n", pipeCell(page.Slug), pipeCell(page.Title), "100%")
 	}
 	return nil
+}
+
+func normalizeSearchQueries(raw []string) []string {
+	queries := make([]string, 0, len(raw))
+	for _, query := range raw {
+		query = strings.ToLower(strings.TrimSpace(query))
+		if query == "" {
+			continue
+		}
+		queries = append(queries, query)
+	}
+	return queries
+}
+
+func searchRowMatches(queries []string, values ...string) bool {
+	return searchHaystackMatches(queries, strings.ToLower(strings.Join(values, " ")))
+}
+
+func searchHaystackMatches(queries []string, haystack string) bool {
+	if len(queries) == 0 {
+		return true
+	}
+	for _, query := range queries {
+		if strings.Contains(haystack, query) {
+			return true
+		}
+	}
+	return false
 }
 
 // pipeCell 转义 pipe table 单元格，保证输出仍是合法表格。

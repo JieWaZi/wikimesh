@@ -16,6 +16,29 @@ func (s *Store) Search(ctx context.Context, collection string, query string, opt
 	return s.searchDocuments(ctx, collection, query, opts)
 }
 
+// SearchMany 对多个普通 query 分别执行 Search，并用等权 RRF 融合结果。
+func (s *Store) SearchMany(ctx context.Context, collection string, queries []string, opts SearchOptions) ([]SearchResult, error) {
+	queries = normalizeSearchQueries(queries)
+	if len(queries) == 0 {
+		return nil, nil
+	}
+	if len(queries) == 1 {
+		return s.Search(ctx, collection, queries[0], opts)
+	}
+	limit := normalizeSearchLimit(opts.Limit)
+	searchOpts := opts
+	searchOpts.Limit = limit
+	resultSets := make([][]SearchResult, 0, len(queries))
+	for _, query := range queries {
+		results, err := s.Search(ctx, collection, query, searchOpts)
+		if err != nil {
+			return nil, err
+		}
+		resultSets = append(resultSets, results)
+	}
+	return fuseSearchResultSets(resultSets, limit, opts.MinScore), nil
+}
+
 // SearchLex 执行 qmd SDK searchLex 等价的 BM25 关键词检索。
 // 它不调用 LLM、QueryExpander 或 reranker，只走 documents_fts。
 func (s *Store) SearchLex(ctx context.Context, query string, opts LexSearchOptions) ([]SearchResult, error) {

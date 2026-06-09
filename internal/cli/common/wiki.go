@@ -82,6 +82,14 @@ type WikiCodeRepo struct {
 
 var wikiSectionStart = regexp.MustCompile(`^<!--\s*wikimesh:section\s+id=([A-Za-z0-9_-]+)\s*-->\s*$`)
 
+type wikiPageMeta struct {
+	Title   string `yaml:"title"`
+	Slug    string `yaml:"slug"`
+	Kind    string `yaml:"kind"`
+	Status  string `yaml:"status"`
+	Summary string `yaml:"summary"`
+}
+
 const (
 	// WikiRepoSourceLocal 表示本地 Wikimesh 文档工作区来源。
 	WikiRepoSourceLocal = "local"
@@ -90,7 +98,7 @@ const (
 )
 
 // SearchWikiPagesWithQMD 尝试使用工作区 qmd 索引搜索 Topic/Workflow 页面。
-func SearchWikiPagesWithQMD(ctx context.Context, out io.Writer, root, kind, query string) (bool, error) {
+func SearchWikiPagesWithQMD(ctx context.Context, out io.Writer, root, kind string, queries []string) (bool, error) {
 	cfgPath := QMDConfigPathForRoot(root)
 	if _, err := os.Stat(cfgPath); err != nil {
 		if os.IsNotExist(err) {
@@ -102,7 +110,7 @@ func SearchWikiPagesWithQMD(ctx context.Context, out io.Writer, root, kind, quer
 	if err != nil {
 		return false, err
 	}
-	if err := absolutizeWikiQMDConfig(root, &cfg); err != nil {
+	if err := AbsolutizeWikiQMDConfig(root, &cfg); err != nil {
 		return false, err
 	}
 	store, err := OpenQMDStoreFromConfig(ctx, cfg)
@@ -111,7 +119,7 @@ func SearchWikiPagesWithQMD(ctx context.Context, out io.Writer, root, kind, quer
 	}
 	defer store.Close()
 
-	results, err := store.Search(ctx, "", query, qmd.SearchOptions{Limit: 50})
+	results, err := store.SearchMany(ctx, "", queries, qmd.SearchOptions{Limit: 50})
 	if err != nil {
 		return false, err
 	}
@@ -119,10 +127,10 @@ func SearchWikiPagesWithQMD(ctx context.Context, out io.Writer, root, kind, quer
 	if len(rows) == 0 {
 		return false, nil
 	}
-	fmt.Fprintln(out, "|file|slug|title|score|")
+	fmt.Fprintln(out, "|slug|title|score|")
 	for _, hit := range rows {
-		file, slug, title := wikiQMDHitDisplay(root, kind, hit)
-		fmt.Fprintf(out, "|%s|%s|%s|%.2f|\n", pipeCell(file), pipeCell(slug), pipeCell(title), hit.Score)
+		_, slug, title := wikiQMDHitDisplay(root, kind, hit)
+		fmt.Fprintf(out, "|%s|%s|%.2f|\n", pipeCell(slug), pipeCell(title), hit.Score)
 	}
 	return true, nil
 }
@@ -135,8 +143,8 @@ func pipeCell(value string) string {
 	return strings.TrimSpace(value)
 }
 
-// absolutizeWikiQMDConfig 把工作区相对 qmd 路径转为绝对路径，支持 --root 从任意目录搜索。
-func absolutizeWikiQMDConfig(root string, cfg *qmd.FileConfig) error {
+// AbsolutizeWikiQMDConfig 把工作区相对 qmd 路径转为绝对路径，支持 --root 从任意目录搜索。
+func AbsolutizeWikiQMDConfig(root string, cfg *qmd.FileConfig) error {
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
 		return err
@@ -406,26 +414,15 @@ func ParseWikiPage(root, rel string) (WikiPage, error) {
 		return WikiPage{}, fmt.Errorf("%s: missing YAML frontmatter", rel)
 	}
 	page := WikiPage{Rel: rel, Sections: map[string]string{}, Text: string(body)}
-	// 当前只消费检索和展示需要的轻量 frontmatter 字段。
-	for _, line := range strings.Split(string(meta), "\n") {
-		key, value, ok := strings.Cut(line, ":")
-		if !ok {
-			continue
-		}
-		value = strings.Trim(strings.TrimSpace(value), `"'`)
-		switch strings.TrimSpace(key) {
-		case "title":
-			page.Title = value
-		case "slug":
-			page.Slug = value
-		case "kind":
-			page.Kind = value
-		case "status":
-			page.Status = value
-		case "summary":
-			page.Summary = value
-		}
+	var frontmatter wikiPageMeta
+	if err := yaml.Unmarshal(meta, &frontmatter); err != nil {
+		return WikiPage{}, fmt.Errorf("%s: parse frontmatter: %w", rel, err)
 	}
+	page.Title = strings.TrimSpace(frontmatter.Title)
+	page.Slug = strings.TrimSpace(frontmatter.Slug)
+	page.Kind = strings.TrimSpace(frontmatter.Kind)
+	page.Status = strings.TrimSpace(frontmatter.Status)
+	page.Summary = strings.TrimSpace(frontmatter.Summary)
 	if page.Slug == "" {
 		page.Slug = strings.TrimSuffix(filepath.Base(rel), filepath.Ext(rel))
 	}

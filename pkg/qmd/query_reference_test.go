@@ -27,6 +27,23 @@ func (queryContractEmbedder) Embed(text string) ([]float32, error) {
 	}
 }
 
+type countingQueryEmbedder struct {
+	texts []string
+}
+
+func (e *countingQueryEmbedder) Name() string { return "qmd-contract/counting-query" }
+
+func (e *countingQueryEmbedder) Dimensions() int { return queryContractEmbedder{}.Dimensions() }
+
+func (e *countingQueryEmbedder) Embed(text string) ([]float32, error) {
+	e.texts = append(e.texts, text)
+	return queryContractEmbedder{}.Embed(text)
+}
+
+func (e *countingQueryEmbedder) reset() {
+	e.texts = nil
+}
+
 type queryContractExpander struct {
 	items []QueryExpansion
 	calls int
@@ -407,6 +424,48 @@ func TestQueryAcceptsPreExpandedQueriesWithoutAutoExpansion(t *testing.T) {
 	}
 }
 
+func TestQueryAcceptsIndependentSearchQueries(t *testing.T) {
+	ctx := context.Background()
+	expander := &queryContractExpander{items: []QueryExpansion{
+		{Type: QueryExpansionLex, Text: "unused-expansion"},
+	}}
+	embedder := &countingQueryEmbedder{}
+	store := newReferenceQueryFixture(t, Config{
+		ChunkSize:     50,
+		Embedder:      embedder,
+		QueryExpander: expander,
+	})
+	defer store.Close()
+	embedder.reset()
+
+	result, err := store.Query(ctx, "docs", "combined retrieval", QueryOptions{
+		Limit:         5,
+		SkipRerank:    true,
+		Explain:       true,
+		SearchQueries: []string{"alpha", "lex-only"},
+	})
+	if err != nil {
+		t.Fatalf("Query with independent search queries: %v", err)
+	}
+	if expander.calls != 0 {
+		t.Fatalf("QueryExpander calls = %d, want search queries to skip auto expansion", expander.calls)
+	}
+	if len(embedder.texts) != 1 || !strings.Contains(embedder.texts[0], "combined retrieval") {
+		t.Fatalf("embedded queries = %#v, want only the primary question embedded once", embedder.texts)
+	}
+	paths := resultPaths(result.Results)
+	if indexOfPath(paths, "alpha.md") < 0 || indexOfPath(paths, "lex.md") < 0 {
+		t.Fatalf("paths = %#v, want results from both independent search queries", paths)
+	}
+	lex := findResultPath(t, result.Results, "lex.md")
+	if lex.Explain == nil || len(lex.Explain.RRF.Contributions) == 0 {
+		t.Fatalf("lex explain = %#v, want RRF contributions", lex.Explain)
+	}
+	if !hasContributionQuery(lex.Explain.RRF.Contributions, "lex-only") {
+		t.Fatalf("lex contributions = %#v, want lex-only contribution", lex.Explain.RRF.Contributions)
+	}
+}
+
 func newReferenceQueryFixture(t testingFatalHelper, cfg Config) *Store {
 	t.Helper()
 	ctx := context.Background()
@@ -487,6 +546,15 @@ func findResultPath(t *testing.T, results []SearchResult, path string) SearchRes
 func hasOriginalDoubleWeight(contributions []QueryContributionTrace) bool {
 	for _, contribution := range contributions {
 		if contribution.QueryType == "original" && contribution.Weight == 2.0 {
+			return true
+		}
+	}
+	return false
+}
+
+func hasContributionQuery(contributions []QueryContributionTrace, query string) bool {
+	for _, contribution := range contributions {
+		if contribution.Query == query {
 			return true
 		}
 	}

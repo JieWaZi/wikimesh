@@ -13,7 +13,7 @@ argument-hint: "<问题>"
 - **视图分层读取**：先用 `--view card` 判断命中，再用 `--view core` 回答主问题，只有 core 不够时读 `--view explain`。card 只放判断“是不是这个页面”的信息，core 放高频主结论，explain 放低频补充。
 - **按需加载参考文档**：
   - 查询或读取 DevWiki 项目知识前 → 读 `references/devwiki.md`
-  - 本地搜索低置信、需 qmd 升档时 → 继续按 `references/devwiki.md` 使用 `wikimesh qmd query`；需要向量检索前先执行或确认 `wikimesh qmd embed`
+  - 本地搜索低置信、需语义 query 升档时 → 先读 `references/query-rules.md`，再使用 `wikimesh query`
 
 不要凭空回答项目事实；先查 DevWiki 文档，优先基于 topic / workflow / troubleshooting / raw 总结；每个关键结论都要能追溯来源。
 
@@ -56,7 +56,7 @@ argument-hint: "<问题>"
 按 `references/devwiki.md` 的结构化定位规则串行搜索：
 
 ```text
-glossary keywords → index → glossary → topic/workflow → qmd query
+glossary keywords → index → glossary → topic/workflow → 必要时加载 query-rules.md 后使用 wikimesh query
 ```
 
 - 定位和读取必须服从 `references/devwiki.md` 的 Glossary Alignment、Competitor Check、Card Scoring、Evidence Path 和 Confirmation Actions。

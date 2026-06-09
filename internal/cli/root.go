@@ -7,6 +7,7 @@ import (
 	glossarycmd "github.com/JieWaZi/wikimesh/internal/cli/glossary"
 	initcmd "github.com/JieWaZi/wikimesh/internal/cli/init"
 	qmdcmd "github.com/JieWaZi/wikimesh/internal/cli/qmd"
+	querycmd "github.com/JieWaZi/wikimesh/internal/cli/query"
 	readcmd "github.com/JieWaZi/wikimesh/internal/cli/read"
 	repocmd "github.com/JieWaZi/wikimesh/internal/cli/repo"
 	searchcmd "github.com/JieWaZi/wikimesh/internal/cli/search"
@@ -32,6 +33,7 @@ func NewRootCmd() *cobra.Command {
 	root.AddCommand(updatecmd.NewCommand())
 	root.AddCommand(readcmd.NewCommand())
 	root.AddCommand(searchcmd.NewCommand())
+	root.AddCommand(querycmd.NewCommand())
 	root.AddCommand(glossarycmd.NewCommand())
 	root.AddCommand(repocmd.NewCommand())
 	root.AddCommand(skillcmd.NewCommand())
