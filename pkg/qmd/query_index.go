@@ -4,13 +4,28 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
+	"unicode"
 )
 
 const queryDefaultCandidateLimit = 40
 const queryBackendLimit = 20
 const queryRRFK = 60.0
+
+var queryIntentStopWords = map[string]struct{}{
+	"am": {}, "an": {}, "as": {}, "at": {}, "be": {}, "by": {}, "do": {}, "he": {}, "if": {},
+	"in": {}, "is": {}, "it": {}, "me": {}, "my": {}, "no": {}, "of": {}, "on": {}, "or": {}, "so": {},
+	"to": {}, "up": {}, "us": {}, "we": {},
+	"all": {}, "and": {}, "any": {}, "are": {}, "but": {}, "can": {}, "did": {}, "for": {}, "get": {},
+	"has": {}, "her": {}, "him": {}, "his": {}, "how": {}, "its": {}, "let": {}, "may": {}, "not": {},
+	"our": {}, "out": {}, "the": {}, "too": {}, "was": {}, "who": {}, "why": {}, "you": {},
+	"also": {}, "does": {}, "find": {}, "from": {}, "have": {}, "into": {}, "more": {}, "need": {},
+	"show": {}, "some": {}, "tell": {}, "that": {}, "them": {}, "this": {}, "want": {}, "what": {},
+	"when": {}, "will": {}, "with": {}, "your": {},
+	"about": {}, "looking": {}, "notes": {}, "search": {}, "where": {}, "which": {},
+}
 
 // queryList 是 qmd hybridQuery 中的一路后端检索列表。
 // original FTS/Vector 使用 2x 权重，lex/vec/hyde expansion 使用 1x 权重。
@@ -20,6 +35,12 @@ type queryList struct {
 	query     string
 	weight    float64
 	results   []SearchResult
+}
+
+type queryVectorRequest struct {
+	queryType string
+	query     string
+	weight    float64
 }
 
 // queryCandidate 是 RRF 融合后的文档候选。
@@ -52,7 +73,7 @@ func (s *Store) queryQMD(ctx context.Context, collection string, question string
 	if err != nil {
 		return nil, err
 	}
-	candidates, err := s.queryCandidates(ctx, lists, primaryQuestion, opts.Explain)
+	candidates, err := s.queryCandidates(ctx, lists, primaryQuestion, opts.Intent, opts.Explain)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +105,7 @@ func (s *Store) queryQMD(ctx context.Context, collection string, question string
 			Text: r.BestChunk,
 		})
 	}
-	scores, err := s.queryReranker.Rerank(ctx, primaryQuestion, rerankDocs)
+	scores, err := s.queryReranker.Rerank(ctx, queryRerankQuestion(primaryQuestion, opts.Intent), rerankDocs)
 	if err != nil {
 		return nil, err
 	}
@@ -154,29 +175,28 @@ func (s *Store) queryRetrievalLists(ctx context.Context, collection, question st
 		}
 		return results, nil
 	}
-	addVec := func(queryType, query string, weight float64) error {
-		results, err := s.queryVectorSearchOnce(collection, query, limit)
-		if err != nil {
-			return err
-		}
-		lists = append(lists, queryList{source: "vec", queryType: queryType, query: query, weight: weight, results: results})
-		return nil
-	}
-
 	initialFTS, err := searchFTS(question)
 	if err != nil {
 		return nil, "", err
 	}
 	addFTSResults("original", question, 2.0, initialFTS)
-	if err := addVec("original", question, 2.0); err != nil {
-		return nil, "", err
-	}
+	vectorRequests := []queryVectorRequest{{queryType: "original", query: question, weight: 2.0}}
 	if s.queryExpander == nil {
+		vectorLists, err := s.queryVectorRetrievalLists(collection, vectorRequests, limit)
+		if err != nil {
+			return nil, "", err
+		}
+		lists = append(lists, vectorLists...)
 		return lists, question, nil
 	}
 
 	// qmd 的 strong BM25 signal 会跳过昂贵的 query expansion，但仍保留原始 FTS/Vector 两路证据。
 	if opts.Intent == "" && queryHasStrongSignal(initialFTS) {
+		vectorLists, err := s.queryVectorRetrievalLists(collection, vectorRequests, limit)
+		if err != nil {
+			return nil, "", err
+		}
+		lists = append(lists, vectorLists...)
 		return lists, question, nil
 	}
 	expansions, err := expandQueryWithOptions(ctx, s.queryExpander, question, ExpandQueryOptions{Intent: opts.Intent})
@@ -196,11 +216,14 @@ func (s *Store) queryRetrievalLists(ctx context.Context, collection, question st
 			}
 			addFTSResults("lex", text, 1.0, results)
 		case QueryExpansionVec, QueryExpansionHyDE:
-			if err := addVec(string(expansion.Type), text, 1.0); err != nil {
-				return nil, "", err
-			}
+			vectorRequests = append(vectorRequests, queryVectorRequest{queryType: string(expansion.Type), query: text, weight: 1.0})
 		}
 	}
+	vectorLists, err := s.queryVectorRetrievalLists(collection, vectorRequests, limit)
+	if err != nil {
+		return nil, "", err
+	}
+	lists = append(lists, vectorLists...)
 	return lists, question, nil
 }
 
@@ -224,11 +247,11 @@ func (s *Store) querySearchRetrievalLists(ctx context.Context, collection, quest
 			return nil, "", err
 		}
 		addList("fts", "original", primaryQuestion, 2.0, results)
-		vectorResults, err := s.queryVectorSearchOnce(collection, primaryQuestion, limit)
+		vectorLists, err := s.queryVectorRetrievalLists(collection, []queryVectorRequest{{queryType: "original", query: primaryQuestion, weight: 2.0}}, limit)
 		if err != nil {
 			return nil, "", err
 		}
-		addList("vec", "original", primaryQuestion, 2.0, vectorResults)
+		lists = append(lists, vectorLists...)
 	}
 	for _, query := range queries {
 		results, err := s.Search(ctx, collection, query, SearchOptions{Limit: limit})
@@ -244,6 +267,9 @@ func (s *Store) querySearchRetrievalLists(ctx context.Context, collection, quest
 // 它不调用 QueryExpander，按调用方提供的 lex/vec/hyde 精确分路。
 func (s *Store) queryStructuredRetrievalLists(ctx context.Context, collection string, queries []QueryExpansion, limit int) ([]queryList, string, error) {
 	lists := []queryList{}
+	if err := validateStructuredQueries(queries); err != nil {
+		return nil, "", err
+	}
 	primaryQuestion := primaryStructuredQuery(queries)
 	addList := func(source, queryType, query string, results []SearchResult) {
 		if len(results) == 0 {
@@ -256,6 +282,7 @@ func (s *Store) queryStructuredRetrievalLists(ctx context.Context, collection st
 		}
 		lists = append(lists, queryList{source: source, queryType: queryType, query: query, weight: weight, results: results})
 	}
+	vectorRequests := []queryVectorRequest{}
 	for _, expansion := range queries {
 		expansion = normalizeQueryExpansion(expansion)
 		text := queryExpansionText(expansion)
@@ -270,20 +297,71 @@ func (s *Store) queryStructuredRetrievalLists(ctx context.Context, collection st
 			}
 			addList("fts", "lex", text, results)
 		case QueryExpansionVec, QueryExpansionHyDE:
-			results, err := s.queryVectorSearchOnce(collection, text, limit)
-			if err != nil {
-				return nil, "", err
-			}
-			addList("vec", string(expansion.Type), text, results)
+			vectorRequests = append(vectorRequests, queryVectorRequest{queryType: string(expansion.Type), query: text})
 		}
 	}
+	vectorLists, err := s.queryVectorRetrievalLists(collection, vectorRequests, limit)
+	if err != nil {
+		return nil, "", err
+	}
+	for _, list := range vectorLists {
+		addList(list.source, list.queryType, list.query, list.results)
+	}
 	return lists, primaryQuestion, nil
+}
+
+func (s *Store) queryVectorRetrievalLists(collection string, requests []queryVectorRequest, limit int) ([]queryList, error) {
+	if s.embedder == nil || len(requests) == 0 {
+		return nil, nil
+	}
+	hasVectors, err := s.hasVectorIndexForCollection(collection)
+	if err != nil {
+		return nil, err
+	}
+	if !hasVectors {
+		return nil, nil
+	}
+	inputs := make([]string, 0, len(requests))
+	for _, req := range requests {
+		inputs = append(inputs, s.formatQueryEmbeddingInput(req.query))
+	}
+	vectors, err := s.embedQueryInputs(inputs)
+	if err != nil {
+		return nil, err
+	}
+	lists := make([]queryList, 0, len(requests))
+	for i, req := range requests {
+		if i >= len(vectors) || len(vectors[i]) == 0 {
+			continue
+		}
+		raw, err := s.searchVectorVariants(collection, [][]float32{vectors[i]}, limit)
+		if err != nil {
+			return nil, err
+		}
+		results, err := s.vectorResults(collection, raw, -2, limit)
+		if err != nil {
+			return nil, err
+		}
+		weight := req.weight
+		if weight == 0 {
+			weight = 1.0
+		}
+		lists = append(lists, queryList{source: "vec", queryType: req.queryType, query: req.query, weight: weight, results: results})
+	}
+	return lists, nil
 }
 
 // queryVectorSearchOnce 执行单个 query 文本的向量检索。
 // 这里不能调用 VSearch，因为 VSearch 自己会消费 QueryExpander；qmd hybridQuery 要求 typed expansion 已在 query 层完成。
 func (s *Store) queryVectorSearchOnce(collection, query string, limit int) ([]SearchResult, error) {
 	if s.embedder == nil {
+		return nil, nil
+	}
+	hasVectors, err := s.hasVectorIndexForCollection(collection)
+	if err != nil {
+		return nil, err
+	}
+	if !hasVectors {
 		return nil, nil
 	}
 	vec, err := s.embedder.Embed(s.formatQueryEmbeddingInput(query))
@@ -297,16 +375,33 @@ func (s *Store) queryVectorSearchOnce(collection, query string, limit int) ([]Se
 	return s.vectorResults(collection, raw, -2, limit)
 }
 
+func (s *Store) hasVectorIndexForCollection(collection string) (bool, error) {
+	query := `SELECT COUNT(*)
+FROM vec_chunks AS v
+JOIN collection_documents AS d ON d.id = v.doc_id
+WHERE d.active = 1 AND v.embed_fingerprint = ?`
+	args := []any{s.embeddingFingerprint()}
+	if collection != "" {
+		query += " AND d.collection = ?"
+		args = append(args, collection)
+	}
+	var count int
+	if err := s.db.ReadDB().QueryRow(query, args...).Scan(&count); err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // queryCandidates 对所有后端列表做 qmd RRF 融合。
 // RRF contribution 使用 weight/(60+rank)，top-rank bonus 使用文档在任意后端列表内的最佳排名。
-func (s *Store) queryCandidates(ctx context.Context, lists []queryList, question string, explain bool) ([]queryCandidate, error) {
+func (s *Store) queryCandidates(ctx context.Context, lists []queryList, question string, intent string, explain bool) ([]queryCandidate, error) {
 	byID := map[string]*queryCandidate{}
 	for listIndex, list := range lists {
 		for i, result := range list.results {
 			rank := i + 1
 			candidate, ok := byID[result.ID]
 			if !ok {
-				enriched, err := s.enrichQueryResult(ctx, result, question, "")
+				enriched, err := s.enrichQueryResult(ctx, result, question, intent, "")
 				if err != nil {
 					return nil, err
 				}
@@ -334,7 +429,7 @@ func (s *Store) queryCandidates(ctx context.Context, lists []queryList, question
 			} else {
 				candidate.vectorScores = append(candidate.vectorScores, result.Score)
 				if result.ChunkID != "" && candidate.result.ChunkID == "" {
-					enriched, err := s.enrichQueryResult(ctx, result, question, result.ChunkID)
+					enriched, err := s.enrichQueryResult(ctx, result, question, intent, result.ChunkID)
 					if err != nil {
 						return nil, err
 					}
@@ -382,7 +477,7 @@ func (s *Store) queryCandidates(ctx context.Context, lists []queryList, question
 }
 
 // enrichQueryResult 补齐 query 输出需要的 qmd 字段：虚拟路径、短 docid、path context 和 best chunk。
-func (s *Store) enrichQueryResult(ctx context.Context, result SearchResult, question string, preferredChunkID string) (SearchResult, error) {
+func (s *Store) enrichQueryResult(ctx context.Context, result SearchResult, question string, intent string, preferredChunkID string) (SearchResult, error) {
 	meta, err := s.getActiveDocByID(result.ID)
 	if err != nil {
 		return result, err
@@ -400,7 +495,7 @@ func (s *Store) enrichQueryResult(ctx context.Context, result SearchResult, ques
 		return result, err
 	}
 	result.Context = contextText
-	chunk, chunkID, pos, err := s.bestQueryChunk(result.ID, question, preferredChunkID)
+	chunk, chunkID, pos, err := s.bestQueryChunk(result.ID, question, intent, preferredChunkID)
 	if err != nil {
 		return result, err
 	}
@@ -414,8 +509,8 @@ func (s *Store) enrichQueryResult(ctx context.Context, result SearchResult, ques
 }
 
 // bestQueryChunk 选择送入 reranker 的 chunk。
-// qmd hybridQuery 按原始问题词在 chunk 中的重叠数量选择，未命中时回退第一段 chunk。
-func (s *Store) bestQueryChunk(docID, question, preferredChunkID string) (string, string, int, error) {
+// qmd hybridQuery 按原始问题词和 intent 词在 chunk 中的重叠数量选择，未命中时回退第一段 chunk。
+func (s *Store) bestQueryChunk(docID, question, intent, preferredChunkID string) (string, string, int, error) {
 	if preferredChunkID != "" {
 		chunk, idx, err := s.chunkByID(preferredChunkID)
 		if err != nil {
@@ -452,7 +547,7 @@ ORDER BY chunk_index
 		if fallbackChunk == "" {
 			fallbackChunk, fallbackID, fallbackPos = content, chunkID, pos
 		}
-		score := queryChunkOverlapScore(question, content)
+		score := queryChunkOverlapScore(question, intent, content)
 		if score > bestScore {
 			bestScore = score
 			fallbackChunk, fallbackID, fallbackPos = content, chunkID, pos
@@ -479,22 +574,60 @@ func (s *Store) chunkByID(chunkID string) (string, int, error) {
 	return content, index, err
 }
 
-// queryChunkOverlapScore 计算问题词和 chunk 的简单重叠分。
-// qmd 使用原始 query terms 选择 best chunk；intent 权重当前未接入 Go API。
-func queryChunkOverlapScore(query string, content string) int {
-	terms := strings.Fields(strings.ToLower(query))
+// queryChunkOverlapScore 计算问题词、intent 词和 chunk 的简单重叠分。
+// qmd 中 intent terms 按 0.5 权重参与 best chunk 选择；这里用 2/1 整数权重避免浮点比较噪声。
+func queryChunkOverlapScore(query string, intent string, content string) int {
+	questionTerms := queryTermList(query)
+	intentTerms := queryIntentTermList(intent)
 	contentLower := strings.ToLower(content)
 	score := 0
-	for _, term := range terms {
-		term = strings.Trim(term, "_./,;:!?()[]{}\"'")
-		if len(term) < 3 {
-			continue
+	for _, term := range questionTerms {
+		if strings.Contains(contentLower, term) {
+			score += 2
 		}
+	}
+	for _, term := range intentTerms {
 		if strings.Contains(contentLower, term) {
 			score++
 		}
 	}
 	return score
+}
+
+func queryTermList(text string) []string {
+	raw := strings.Fields(strings.ToLower(text))
+	terms := make([]string, 0, len(raw))
+	for _, term := range raw {
+		term = strings.Trim(term, "_./,;:!?()[]{}\"'")
+		if len(term) >= 3 {
+			terms = append(terms, term)
+		}
+	}
+	return terms
+}
+
+func queryIntentTermList(text string) []string {
+	raw := strings.Fields(strings.ToLower(text))
+	terms := make([]string, 0, len(raw))
+	for _, term := range raw {
+		term = strings.TrimFunc(term, func(r rune) bool {
+			return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+		})
+		if len(term) > 1 {
+			if _, stop := queryIntentStopWords[term]; !stop {
+				terms = append(terms, term)
+			}
+		}
+	}
+	return terms
+}
+
+func queryRerankQuestion(question string, intent string) string {
+	intent = strings.TrimSpace(intent)
+	if intent == "" {
+		return question
+	}
+	return intent + "\n\n" + question
 }
 
 // queryExpansionText 读取扩展查询文本，兼容 Go Text 字段和 qmd JSON query 字段。
@@ -534,6 +667,43 @@ func primaryStructuredQuery(queries []QueryExpansion) string {
 		}
 	}
 	return ""
+}
+
+func validateStructuredQueries(queries []QueryExpansion) error {
+	for _, expansion := range queries {
+		expansion = normalizeQueryExpansion(expansion)
+		text := queryExpansionText(expansion)
+		location := "Structured search"
+		if expansion.Line > 0 {
+			location = fmt.Sprintf("Line %d", expansion.Line)
+		}
+		prefix := fmt.Sprintf("%s (%s): ", location, expansion.Type)
+		if strings.ContainsAny(text, "\r\n") {
+			return errors.New(prefix + "queries must be single-line")
+		}
+		switch expansion.Type {
+		case QueryExpansionLex:
+			if strings.Count(text, "\"")%2 == 1 {
+				return errors.New(prefix + "lex query has an unmatched double quote")
+			}
+		case QueryExpansionVec, QueryExpansionHyDE:
+			if semanticQueryHasNegation(text) {
+				return errors.New(prefix + "Negation (-term) is not supported in vec/hyde queries")
+			}
+		}
+	}
+	return nil
+}
+
+func semanticQueryHasNegation(query string) bool {
+	atTokenStart := true
+	for _, r := range query {
+		if r == '-' && atTokenStart {
+			return true
+		}
+		atTokenStart = unicode.IsSpace(r)
+	}
+	return false
 }
 
 // qmdURI 返回 qmd://collection/path 虚拟路径。

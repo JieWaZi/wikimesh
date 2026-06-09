@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"sort"
+	"strings"
 
 	"github.com/JieWaZi/wikimesh/pkg/qmd/index"
 )
@@ -54,6 +55,13 @@ func (s *Store) SearchVector(ctx context.Context, query string, opts VectorSearc
 	if s.embedder == nil {
 		return nil, errors.New("embedding provider is not configured")
 	}
+	hasVectors, err := s.hasVectorIndexForCollection(opts.Collection)
+	if err != nil {
+		return nil, err
+	}
+	if !hasVectors {
+		return nil, nil
+	}
 	queryVec, err := s.embedder.Embed(s.formatQueryEmbeddingInput(query))
 	if err != nil {
 		return nil, err
@@ -83,10 +91,15 @@ func (s *Store) ExpandQuery(ctx context.Context, query string, opts ExpandQueryO
 	if err != nil {
 		return nil, err
 	}
+	filtered := make([]QueryExpansion, 0, len(expanded))
 	for i := range expanded {
-		expanded[i] = normalizeQueryExpansion(expanded[i])
+		item := normalizeQueryExpansion(expanded[i])
+		if queryExpansionText(item) == query {
+			continue
+		}
+		filtered = append(filtered, item)
 	}
-	return expanded, nil
+	return filtered, nil
 }
 
 // VSearch 执行 chunk 级向量检索。
@@ -97,6 +110,13 @@ func (s *Store) VSearch(ctx context.Context, collection string, query string, op
 	}
 	if s.embedder == nil {
 		return nil, errors.New("embedding provider is not configured")
+	}
+	hasVectors, err := s.hasVectorIndexForCollection(collection)
+	if err != nil {
+		return nil, err
+	}
+	if !hasVectors {
+		return nil, nil
 	}
 	queryInputs, err := s.vectorQueryInputs(ctx, query, opts.Intent)
 	if err != nil {
@@ -122,6 +142,24 @@ func (s *Store) VSearch(ctx context.Context, collection string, query string, op
 		minScore = defaultVSearchMinScore
 	}
 	return s.vectorResults(collection, raw, minScore, limit)
+}
+
+func (s *Store) embedQueryInputs(inputs []string) ([][]float32, error) {
+	if len(inputs) == 0 {
+		return nil, nil
+	}
+	if batcher, ok := s.embedder.(BatchEmbedder); ok {
+		return batcher.EmbedBatch(inputs)
+	}
+	vectors := make([][]float32, 0, len(inputs))
+	for _, input := range inputs {
+		vec, err := s.embedder.Embed(input)
+		if err != nil {
+			return nil, err
+		}
+		vectors = append(vectors, vec)
+	}
+	return vectors, nil
 }
 
 // Query 执行 qmd 风格混合查询。
@@ -161,7 +199,9 @@ func scanDoc(row *sql.Row) (*docMeta, error) {
 }
 
 func (s *Store) vectorQueryInputs(ctx context.Context, query string, intent string) ([]string, error) {
-	inputs := []string{s.formatQueryEmbeddingInput(query)}
+	primary := strings.TrimSpace(query)
+	inputs := []string{s.formatQueryEmbeddingInput(primary)}
+	seen := map[string]struct{}{primary: {}}
 	if s.queryExpander == nil {
 		return inputs, nil
 	}
@@ -176,6 +216,10 @@ func (s *Store) vectorQueryInputs(ctx context.Context, query string, intent stri
 		}
 		text := queryExpansionText(item)
 		if text != "" {
+			if _, ok := seen[text]; ok {
+				continue
+			}
+			seen[text] = struct{}{}
 			inputs = append(inputs, s.formatQueryEmbeddingInput(text))
 		}
 	}

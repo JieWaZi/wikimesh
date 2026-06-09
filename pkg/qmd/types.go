@@ -127,6 +127,15 @@ type Embedder interface {
 	Name() string
 }
 
+// BatchEmbedder 是可选的批量 embedding 接口。
+// 实现该接口时，Query 会把同一轮 original/vec/hyde 查询合并成一次批量请求。
+type BatchEmbedder interface {
+	Embedder
+
+	// EmbedBatch 把多段文本一次性转成向量，返回顺序必须与输入一致。
+	EmbedBatch(texts []string) ([][]float32, error)
+}
+
 // QueryExpansionType 标识扩展查询的用途。
 type QueryExpansionType string
 

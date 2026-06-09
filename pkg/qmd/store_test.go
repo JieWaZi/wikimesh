@@ -698,6 +698,7 @@ func TestVSearchUsesVecAndHyDEExpansionsOnly(t *testing.T) {
 		Embedder:  embedder,
 		QueryExpander: fakeQueryExpander{items: []qmd.QueryExpansion{
 			{Type: qmd.QueryExpansionLex, Text: "lex beta"},
+			{Type: qmd.QueryExpansionVec, Text: "alpha"},
 			{Type: qmd.QueryExpansionVec, Text: "semantic beta"},
 			{Type: qmd.QueryExpansionHyDE, Text: "hypothetical beta"},
 		}},
@@ -734,8 +735,95 @@ func TestVSearchUsesVecAndHyDEExpansionsOnly(t *testing.T) {
 	if strings.Contains(joined, "lex beta") {
 		t.Fatalf("VSearch embedded lex expansion input: %#v", embedder.inputs)
 	}
+	alphaInputs := 0
+	for _, input := range embedder.inputs {
+		if strings.Contains(input, "alpha") {
+			alphaInputs++
+		}
+	}
+	if alphaInputs != 1 {
+		t.Fatalf("VSearch alpha inputs = %#v, want duplicate original expansion filtered", embedder.inputs)
+	}
 	if !strings.Contains(joined, "semantic beta") || !strings.Contains(joined, "hypothetical beta") {
 		t.Fatalf("VSearch inputs = %#v, want vec and hyde expansions", embedder.inputs)
+	}
+}
+
+func TestVSearchSkipsEmbeddingWhenNoVectorsLikeQMD(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	docs := filepath.Join(dir, "docs")
+	if err := os.MkdirAll(docs, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(docs, "alpha.md"), []byte("# Alpha\n\nAlpha topic.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	embedder := &recordingEmbedder{}
+	store, err := qmd.NewStore(qmd.Config{
+		DBPath:   filepath.Join(dir, "wiki.db"),
+		Embedder: embedder,
+	})
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	defer store.Close()
+	if err := store.AddCollection(ctx, qmd.Collection{Name: "docs", Path: docs, Include: []string{"**/*.md"}}); err != nil {
+		t.Fatalf("AddCollection: %v", err)
+	}
+	if _, err := store.UpdateCollection(ctx, "docs", qmd.UpdateOptions{}); err != nil {
+		t.Fatalf("UpdateCollection: %v", err)
+	}
+
+	hits, err := store.VSearch(ctx, "docs", "alpha", qmd.SearchOptions{Limit: 5})
+	if err != nil {
+		t.Fatalf("VSearch: %v", err)
+	}
+	if len(hits) != 0 {
+		t.Fatalf("VSearch hits = %#v, want empty result without vectors", hits)
+	}
+	if len(embedder.inputs) != 0 {
+		t.Fatalf("VSearch embed inputs = %#v, want vector path skipped without vectors", embedder.inputs)
+	}
+}
+
+func TestSearchVectorSkipsEmbeddingWhenNoVectorsLikeQMD(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	docs := filepath.Join(dir, "docs")
+	if err := os.MkdirAll(docs, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(docs, "alpha.md"), []byte("# Alpha\n\nAlpha topic.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	embedder := &recordingEmbedder{}
+	store, err := qmd.NewStore(qmd.Config{
+		DBPath:   filepath.Join(dir, "wiki.db"),
+		Embedder: embedder,
+	})
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	defer store.Close()
+	if err := store.AddCollection(ctx, qmd.Collection{Name: "docs", Path: docs, Include: []string{"**/*.md"}}); err != nil {
+		t.Fatalf("AddCollection: %v", err)
+	}
+	if _, err := store.UpdateCollection(ctx, "docs", qmd.UpdateOptions{}); err != nil {
+		t.Fatalf("UpdateCollection: %v", err)
+	}
+
+	hits, err := store.SearchVector(ctx, "alpha", qmd.VectorSearchOptions{Collection: "docs", Limit: 5})
+	if err != nil {
+		t.Fatalf("SearchVector: %v", err)
+	}
+	if len(hits) != 0 {
+		t.Fatalf("SearchVector hits = %#v, want empty result without vectors", hits)
+	}
+	if len(embedder.inputs) != 0 {
+		t.Fatalf("SearchVector embed inputs = %#v, want vector path skipped without vectors", embedder.inputs)
 	}
 }
 

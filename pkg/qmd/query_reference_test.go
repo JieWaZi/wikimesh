@@ -28,7 +28,8 @@ func (queryContractEmbedder) Embed(text string) ([]float32, error) {
 }
 
 type countingQueryEmbedder struct {
-	texts []string
+	texts   []string
+	batches [][]string
 }
 
 func (e *countingQueryEmbedder) Name() string { return "qmd-contract/counting-query" }
@@ -40,8 +41,23 @@ func (e *countingQueryEmbedder) Embed(text string) ([]float32, error) {
 	return queryContractEmbedder{}.Embed(text)
 }
 
+func (e *countingQueryEmbedder) EmbedBatch(texts []string) ([][]float32, error) {
+	copied := append([]string(nil), texts...)
+	e.batches = append(e.batches, copied)
+	vectors := make([][]float32, 0, len(texts))
+	for _, text := range texts {
+		vec, err := queryContractEmbedder{}.Embed(text)
+		if err != nil {
+			return nil, err
+		}
+		vectors = append(vectors, vec)
+	}
+	return vectors, nil
+}
+
 func (e *countingQueryEmbedder) reset() {
 	e.texts = nil
+	e.batches = nil
 }
 
 type queryContractExpander struct {
@@ -70,10 +86,12 @@ func (e *intentAwareQueryExpander) ExpandWithOptions(_ context.Context, _ string
 }
 
 type queryContractReranker struct {
-	seen []QueryRerankDocument
+	seen    []QueryRerankDocument
+	queries []string
 }
 
-func (r *queryContractReranker) Rerank(_ context.Context, _ string, docs []QueryRerankDocument) ([]QueryRerankScore, error) {
+func (r *queryContractReranker) Rerank(_ context.Context, query string, docs []QueryRerankDocument) ([]QueryRerankScore, error) {
+	r.queries = append(r.queries, query)
 	r.seen = append(r.seen, docs...)
 	out := make([]QueryRerankScore, 0, len(docs))
 	for _, doc := range docs {
@@ -197,6 +215,28 @@ func TestQueryReranksChunksAndBlendsByRRFPosition(t *testing.T) {
 	}
 }
 
+func TestQueryPassesIntentToRerankerLikeQMD(t *testing.T) {
+	ctx := context.Background()
+	reranker := &queryContractReranker{}
+	store := newReferenceQueryFixture(t, Config{
+		ChunkSize:     50,
+		Embedder:      queryContractEmbedder{},
+		QueryReranker: reranker,
+	})
+	defer store.Close()
+
+	_, err := store.Query(ctx, "docs", "alpha", QueryOptions{
+		Limit:  2,
+		Intent: "user login",
+	})
+	if err != nil {
+		t.Fatalf("Query: %v", err)
+	}
+	if len(reranker.queries) != 1 || reranker.queries[0] != "user login\n\nalpha" {
+		t.Fatalf("reranker queries = %#v, want qmd intent-prefixed query", reranker.queries)
+	}
+}
+
 func TestQueryBestChunkPosUsesSourceOffsetLikeQMD(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
@@ -246,6 +286,61 @@ func TestQueryBestChunkPosUsesSourceOffsetLikeQMD(t *testing.T) {
 	}
 	if hit.BestChunkPos != wantPos {
 		t.Fatalf("BestChunkPos = %d, want source offset %d", hit.BestChunkPos, wantPos)
+	}
+}
+
+func TestBestQueryChunkUsesIntentTermsLikeQMD(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	docs := filepath.Join(dir, "docs")
+	if err := os.MkdirAll(docs, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body := strings.Join([]string{
+		"# Intent Chunk",
+		"opening filler without the target term.",
+		"## Recovery",
+		"recoverytoken detailed recovery path.",
+	}, "\n\n")
+	if err := os.WriteFile(filepath.Join(docs, "intent.md"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	store, err := NewStore(Config{
+		DBPath:       filepath.Join(dir, "wiki.db"),
+		ChunkSize:    8,
+		ChunkOverlap: 0,
+	})
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	defer store.Close()
+	if err := store.AddCollection(ctx, Collection{Name: "docs", Path: docs}); err != nil {
+		t.Fatalf("AddCollection: %v", err)
+	}
+	if _, err := store.UpdateCollection(ctx, "docs", UpdateOptions{}); err != nil {
+		t.Fatalf("UpdateCollection: %v", err)
+	}
+	meta, err := store.getDocByCollectionPath("docs", "intent.md")
+	if err != nil {
+		t.Fatalf("getDocByCollectionPath: %v", err)
+	}
+	if meta == nil {
+		t.Fatal("intent.md metadata missing")
+	}
+
+	chunk, _, _, err := store.bestQueryChunk(meta.id, "unmatched question", "recoverytoken", "")
+	if err != nil {
+		t.Fatalf("bestQueryChunk: %v", err)
+	}
+	if !strings.Contains(chunk, "recoverytoken") {
+		t.Fatalf("BestChunk = %q, want intent term chunk", chunk)
+	}
+}
+
+func TestQueryIntentTermsTrimUnicodePunctuationLikeQMD(t *testing.T) {
+	score := queryChunkOverlapScore("missing question", "what about 【API】", "what about api route")
+	if score != 1 {
+		t.Fatalf("intent overlap score = %d, want Unicode punctuation trimmed and stop words ignored", score)
 	}
 }
 
@@ -366,6 +461,29 @@ func TestExpandQueryPassesIntentToAwareExpander(t *testing.T) {
 	}
 }
 
+func TestExpandQueryFiltersOriginalTextLikeQMD(t *testing.T) {
+	ctx := context.Background()
+	expander := &queryContractExpander{items: []QueryExpansion{
+		{Type: QueryExpansionLex, Text: "alpha"},
+		{Type: QueryExpansionVec, Text: "alpha"},
+		{Type: QueryExpansionLex, Text: "lex-only"},
+	}}
+	store := newReferenceQueryFixture(t, Config{
+		ChunkSize:     50,
+		Embedder:      queryContractEmbedder{},
+		QueryExpander: expander,
+	})
+	defer store.Close()
+
+	expanded, err := store.ExpandQuery(ctx, "alpha", ExpandQueryOptions{})
+	if err != nil {
+		t.Fatalf("ExpandQuery: %v", err)
+	}
+	if len(expanded) != 1 || expanded[0].Text != "lex-only" {
+		t.Fatalf("expanded = %#v, want duplicate original query removed", expanded)
+	}
+}
+
 func TestQueryPassesIntentToAwareExpander(t *testing.T) {
 	ctx := context.Background()
 	expander := &intentAwareQueryExpander{items: []QueryExpansion{
@@ -391,6 +509,38 @@ func TestQueryPassesIntentToAwareExpander(t *testing.T) {
 	}
 	if indexOfPath(resultPaths(result.Results), "beta.md") < 0 {
 		t.Fatalf("results = %#v, want intent-backed vec expansion to recall beta.md", resultPaths(result.Results))
+	}
+}
+
+func TestQueryBatchEmbedsVectorQueriesLikeQMD(t *testing.T) {
+	ctx := context.Background()
+	embedder := &countingQueryEmbedder{}
+	store := newReferenceQueryFixture(t, Config{
+		ChunkSize: 50,
+		Embedder:  embedder,
+		QueryExpander: &queryContractExpander{items: []QueryExpansion{
+			{Type: QueryExpansionLex, Text: "lex-only"},
+			{Type: QueryExpansionVec, Text: "semantic beta"},
+			{Type: QueryExpansionHyDE, Text: "beta-only hypothetical answer"},
+		}},
+	})
+	defer store.Close()
+	embedder.reset()
+
+	if _, err := store.Query(ctx, "docs", "alpha", QueryOptions{Limit: 5, SkipRerank: true}); err != nil {
+		t.Fatalf("Query: %v", err)
+	}
+	if len(embedder.batches) != 1 {
+		t.Fatalf("embed batches = %#v, want one batch for original vec/hyde queries", embedder.batches)
+	}
+	got := strings.Join(embedder.batches[0], "\n")
+	for _, want := range []string{"alpha", "semantic beta", "beta-only hypothetical answer"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("embed batch = %#v, want %q", embedder.batches[0], want)
+		}
+	}
+	if len(embedder.texts) != 0 {
+		t.Fatalf("single embeds = %#v, want Query vector path to use batch embedder", embedder.texts)
 	}
 }
 
@@ -424,6 +574,113 @@ func TestQueryAcceptsPreExpandedQueriesWithoutAutoExpansion(t *testing.T) {
 	}
 }
 
+func TestQueryStructuredQueriesBatchEmbedLikeQMD(t *testing.T) {
+	ctx := context.Background()
+	embedder := &countingQueryEmbedder{}
+	store := newReferenceQueryFixture(t, Config{
+		ChunkSize: 50,
+		Embedder:  embedder,
+	})
+	defer store.Close()
+	embedder.reset()
+
+	_, err := store.Query(ctx, "docs", "", QueryOptions{
+		Limit:      5,
+		SkipRerank: true,
+		Queries: []QueryExpansion{
+			{Type: QueryExpansionVec, Query: "semantic beta"},
+			{Type: QueryExpansionHyDE, Query: "beta-only hypothetical answer"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Query with structured queries: %v", err)
+	}
+	if len(embedder.batches) != 1 {
+		t.Fatalf("embed batches = %#v, want one batch for structured vec/hyde queries", embedder.batches)
+	}
+	got := strings.Join(embedder.batches[0], "\n")
+	if !strings.Contains(got, "semantic beta") || !strings.Contains(got, "beta-only hypothetical answer") {
+		t.Fatalf("embed batch = %#v, want both structured semantic queries", embedder.batches[0])
+	}
+	if len(embedder.texts) != 0 {
+		t.Fatalf("single embeds = %#v, want structured vector path to use batch embedder", embedder.texts)
+	}
+}
+
+func TestQuerySkipsVectorSearchWhenNoEmbeddingsLikeQMD(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	docs := filepath.Join(dir, "docs")
+	if err := os.MkdirAll(docs, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(docs, "alpha.md"), []byte("# Alpha\n\nalpha exact retrieval chunk.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	embedder := &countingQueryEmbedder{}
+	store, err := NewStore(Config{
+		DBPath:   filepath.Join(dir, "wiki.db"),
+		Embedder: embedder,
+	})
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	defer store.Close()
+	if err := store.AddCollection(ctx, Collection{Name: "docs", Path: docs, Include: []string{"**/*.md"}}); err != nil {
+		t.Fatalf("AddCollection: %v", err)
+	}
+	if _, err := store.UpdateCollection(ctx, "docs", UpdateOptions{}); err != nil {
+		t.Fatalf("UpdateCollection: %v", err)
+	}
+
+	result, err := store.Query(ctx, "docs", "alpha", QueryOptions{Limit: 5, SkipRerank: true})
+	if err != nil {
+		t.Fatalf("Query: %v", err)
+	}
+	if len(result.Results) == 0 || result.Results[0].Path != "alpha.md" {
+		t.Fatalf("results = %#v, want FTS result without embeddings", result.Results)
+	}
+	if len(embedder.texts) != 0 || len(embedder.batches) != 0 {
+		t.Fatalf("embed calls texts=%#v batches=%#v, want vector path skipped when no embeddings exist", embedder.texts, embedder.batches)
+	}
+}
+
+func TestQueryRejectsStructuredQueryNewlineLikeQMD(t *testing.T) {
+	store := newReferenceQueryFixture(t, Config{ChunkSize: 50, Embedder: queryContractEmbedder{}})
+	defer store.Close()
+
+	_, err := store.Query(context.Background(), "docs", "", QueryOptions{
+		Queries: []QueryExpansion{{Type: QueryExpansionLex, Query: "alpha\nbeta", Line: 7}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "single-line") || !strings.Contains(err.Error(), "Line 7") {
+		t.Fatalf("Query error = %v, want line-aware single-line validation", err)
+	}
+}
+
+func TestQueryRejectsStructuredLexUnmatchedQuoteLikeQMD(t *testing.T) {
+	store := newReferenceQueryFixture(t, Config{ChunkSize: 50, Embedder: queryContractEmbedder{}})
+	defer store.Close()
+
+	_, err := store.Query(context.Background(), "docs", "", QueryOptions{
+		Queries: []QueryExpansion{{Type: QueryExpansionLex, Query: `"alpha`}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "unmatched double quote") {
+		t.Fatalf("Query error = %v, want unmatched quote validation", err)
+	}
+}
+
+func TestQueryRejectsStructuredSemanticNegationLikeQMD(t *testing.T) {
+	store := newReferenceQueryFixture(t, Config{ChunkSize: 50, Embedder: queryContractEmbedder{}})
+	defer store.Close()
+
+	_, err := store.Query(context.Background(), "docs", "", QueryOptions{
+		Queries: []QueryExpansion{{Type: QueryExpansionVec, Query: "alpha -beta"}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "Negation") {
+		t.Fatalf("Query error = %v, want semantic negation validation", err)
+	}
+}
+
 func TestQueryAcceptsIndependentSearchQueries(t *testing.T) {
 	ctx := context.Background()
 	expander := &queryContractExpander{items: []QueryExpansion{
@@ -450,8 +707,11 @@ func TestQueryAcceptsIndependentSearchQueries(t *testing.T) {
 	if expander.calls != 0 {
 		t.Fatalf("QueryExpander calls = %d, want search queries to skip auto expansion", expander.calls)
 	}
-	if len(embedder.texts) != 1 || !strings.Contains(embedder.texts[0], "combined retrieval") {
-		t.Fatalf("embedded queries = %#v, want only the primary question embedded once", embedder.texts)
+	if len(embedder.batches) != 1 || len(embedder.batches[0]) != 1 || !strings.Contains(embedder.batches[0][0], "combined retrieval") {
+		t.Fatalf("embed batches = %#v, want only the primary question embedded once", embedder.batches)
+	}
+	if len(embedder.texts) != 0 {
+		t.Fatalf("single embeds = %#v, want search query vector path to use batch embedder", embedder.texts)
 	}
 	paths := resultPaths(result.Results)
 	if indexOfPath(paths, "alpha.md") < 0 || indexOfPath(paths, "lex.md") < 0 {
