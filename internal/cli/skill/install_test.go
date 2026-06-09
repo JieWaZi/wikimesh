@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JieWaZi/wikimesh/internal/cli/common"
+	"github.com/JieWaZi/wikimesh/internal/app/skillapp"
 )
 
-func TestRunWikiSkillInstallResolvesGitHubSource(t *testing.T) {
+func TestRunSkillInstallResolvesGitHubSource(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
@@ -36,18 +36,18 @@ func TestRunWikiSkillInstallResolvesGitHubSource(t *testing.T) {
 		t.Fatalf("WriteFile(SKILL.md) error = %v", err)
 	}
 
-	originalResolver := common.ResolveWikimeshSkills
-	t.Cleanup(func() { common.ResolveWikimeshSkills = originalResolver })
+	originalResolver := skillapp.ResolveWikimeshSkills
+	t.Cleanup(func() { skillapp.ResolveWikimeshSkills = originalResolver })
 
-	var gotSource common.WikiSkillSource
-	common.ResolveWikimeshSkills = func(wikiType string, ref string) (common.WikiSkillBundle, error) {
+	var gotSource skillapp.Source
+	skillapp.ResolveWikimeshSkills = func(wikiType string, ref string) (skillapp.Bundle, error) {
 		if wikiType != "devwiki" {
 			t.Fatalf("resolved wikiType = %q, want devwiki", wikiType)
 		}
-		gotSource = common.NewWikimeshSkillsSource(wikiType, ref)
-		return common.WikiSkillBundle{
+		gotSource = skillapp.NewSource(wikiType, ref)
+		return skillapp.Bundle{
 			Source: gotSource,
-			Skills: []common.WikiSkill{
+			Skills: []skillapp.Skill{
 				{Name: "devwiki-query", Description: "query", Dir: sourceDir},
 			},
 		}, nil
@@ -72,7 +72,7 @@ func TestRunWikiSkillInstallResolvesGitHubSource(t *testing.T) {
 	}
 }
 
-func TestRunWikiSkillInstallUsesExplicitVersion(t *testing.T) {
+func TestRunSkillInstallUsesExplicitVersion(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
@@ -98,15 +98,15 @@ func TestRunWikiSkillInstallUsesExplicitVersion(t *testing.T) {
 		t.Fatalf("WriteFile(SKILL.md) error = %v", err)
 	}
 
-	originalResolver := common.ResolveWikimeshSkills
-	t.Cleanup(func() { common.ResolveWikimeshSkills = originalResolver })
+	originalResolver := skillapp.ResolveWikimeshSkills
+	t.Cleanup(func() { skillapp.ResolveWikimeshSkills = originalResolver })
 
 	var gotRef string
-	common.ResolveWikimeshSkills = func(wikiType string, ref string) (common.WikiSkillBundle, error) {
+	skillapp.ResolveWikimeshSkills = func(wikiType string, ref string) (skillapp.Bundle, error) {
 		gotRef = ref
-		return common.WikiSkillBundle{
-			Source: common.NewWikimeshSkillsSource(wikiType, ref),
-			Skills: []common.WikiSkill{
+		return skillapp.Bundle{
+			Source: skillapp.NewSource(wikiType, ref),
+			Skills: []skillapp.Skill{
 				{Name: "devwiki-query", Description: "query", Dir: sourceDir},
 			},
 		}, nil

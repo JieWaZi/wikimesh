@@ -3,16 +3,10 @@ package cli
 import (
 	"github.com/spf13/cobra"
 
-	checkcmd "github.com/JieWaZi/wikimesh/internal/cli/check"
-	glossarycmd "github.com/JieWaZi/wikimesh/internal/cli/glossary"
-	initcmd "github.com/JieWaZi/wikimesh/internal/cli/init"
 	qmdcmd "github.com/JieWaZi/wikimesh/internal/cli/qmd"
-	querycmd "github.com/JieWaZi/wikimesh/internal/cli/query"
-	readcmd "github.com/JieWaZi/wikimesh/internal/cli/read"
-	repocmd "github.com/JieWaZi/wikimesh/internal/cli/repo"
-	searchcmd "github.com/JieWaZi/wikimesh/internal/cli/search"
 	skillcmd "github.com/JieWaZi/wikimesh/internal/cli/skill"
 	updatecmd "github.com/JieWaZi/wikimesh/internal/cli/update"
+	"github.com/JieWaZi/wikimesh/internal/cli/wiki"
 	"github.com/JieWaZi/wikimesh/internal/ui"
 )
 
@@ -29,15 +23,9 @@ func NewRootCmd() *cobra.Command {
 		},
 	}
 	root.CompletionOptions.DisableDefaultCmd = true
-	root.AddCommand(initcmd.NewCommand())
+	root.AddCommand(wiki.Commands()...)
 	root.AddCommand(updatecmd.NewCommand())
-	root.AddCommand(readcmd.NewCommand())
-	root.AddCommand(searchcmd.NewCommand())
-	root.AddCommand(querycmd.NewCommand())
-	root.AddCommand(glossarycmd.NewCommand())
-	root.AddCommand(repocmd.NewCommand())
 	root.AddCommand(skillcmd.NewCommand())
-	root.AddCommand(checkcmd.NewCommand())
 	root.AddCommand(qmdcmd.NewCommand())
 	ui.ApplyLocalizedHelp(root)
 	return root

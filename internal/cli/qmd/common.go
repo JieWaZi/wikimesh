@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/JieWaZi/wikimesh/internal/cli/common"
+	"github.com/JieWaZi/wikimesh/internal/app/qmdapp"
 	"github.com/JieWaZi/wikimesh/internal/ui"
 	qmd "github.com/JieWaZi/wikimesh/pkg/qmd"
 	"github.com/schollz/progressbar/v3"
@@ -17,17 +17,17 @@ import (
 )
 
 func openDefaultStore(ctx context.Context) (*qmd.Store, qmd.FileConfig, error) {
-	return common.OpenDefaultQMDStore(ctx)
+	return qmdapp.OpenDefaultStore(ctx)
 }
 
 func openWorkspaceStore(ctx context.Context) (*qmd.Store, qmd.FileConfig, string, error) {
 	root, configPath := workspaceQMDConfigPath()
-	cfg, err := common.LoadQMDConfig(configPath)
+	cfg, err := qmdapp.LoadConfig(configPath)
 	if err != nil {
 		return nil, qmd.FileConfig{}, "", err
 	}
 	absolutizeQMDConfig(root, &cfg)
-	store, err := common.OpenQMDStoreFromConfig(ctx, cfg)
+	store, err := qmdapp.OpenStoreFromConfig(ctx, cfg)
 	if err != nil {
 		return nil, qmd.FileConfig{}, "", err
 	}
@@ -35,10 +35,10 @@ func openWorkspaceStore(ctx context.Context) (*qmd.Store, qmd.FileConfig, string
 }
 
 func workspaceQMDConfigPath() (string, string) {
-	if root, ok := qmdConfigRoot(common.DefaultQMDConfigPath); ok {
-		return root, common.DefaultQMDConfigPath
+	if root, ok := qmdConfigRoot(qmdapp.DefaultConfigPath); ok {
+		return root, qmdapp.DefaultConfigPath
 	}
-	return "", common.DefaultQMDConfigPath
+	return "", qmdapp.DefaultConfigPath
 }
 
 func qmdConfigRoot(configPath string) (string, bool) {
