@@ -64,17 +64,17 @@ func TestRunWikiSearchGlossaryOutputsSlugFirst(t *testing.T) {
 func TestRunWikiSearchTopicUsesIndependentQMDQueries(t *testing.T) {
 	ctx := context.Background()
 	root := newSearchProjectRoot(t)
-	writeSearchTopic(t, root, "root-hint.md", "# Root Hint\n\nroot hint runbook.\n")
-	writeSearchTopic(t, root, "dns.md", "# DNS Runbook\n\nroot hint operational steps.\n")
+	writeSearchTopic(t, root, "user-management.md", "# 用户管理\n\nuser management runbook.\n")
+	writeSearchTopic(t, root, "operation.md", "# 操作流程\n\nuser management operational steps.\n")
 	writeSearchQMDIndex(t, ctx, root)
 
 	var out bytes.Buffer
-	if err := runWikiSearch(ctx, &out, root, "", "topic", []string{"root hint", "operational"}); err != nil {
+	if err := runWikiSearch(ctx, &out, root, "", "topic", []string{"user management", "operational"}); err != nil {
 		t.Fatalf("runWikiSearch error = %v", err)
 	}
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
-	if len(lines) < 2 || lines[0] != "|slug|title|score|" || !strings.Contains(lines[1], "|dns|DNS Runbook|") || strings.Contains(lines[1], "dns.md") {
-		t.Fatalf("output = %q, want dns topic first without file column", out.String())
+	if len(lines) < 2 || lines[0] != "|slug|title|score|" || !strings.Contains(lines[1], "|operation|操作流程|") || strings.Contains(lines[1], "operation.md") {
+		t.Fatalf("output = %q, want audit topic first without file column", out.String())
 	}
 }
 

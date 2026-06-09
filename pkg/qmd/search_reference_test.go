@@ -95,16 +95,16 @@ func TestSearchMatchesReferenceResults(t *testing.T) {
 		collection string
 		limit      int
 	}{
-		{name: "plain", collection: "docs", query: "query_source", limit: 5},
-		{name: "phrase", collection: "docs", query: `"root hint"`, limit: 5},
-		{name: "unclosed_phrase", collection: "docs", query: `"root hint`, limit: 5},
+		{name: "plain", collection: "docs", query: "operation_field", limit: 5},
+		{name: "phrase", collection: "docs", query: `"user management"`, limit: 5},
+		{name: "unclosed_phrase", collection: "docs", query: `"user management`, limit: 5},
 		{name: "hyphen", collection: "docs", query: "multi-agent", limit: 5},
 		{name: "dotted", collection: "docs", query: "2026.4.10", limit: 5},
 		{name: "negation", collection: "docs", query: "memory -sports", limit: 5},
-		{name: "cjk", collection: "docs", query: "根提示", limit: 5},
+		{name: "cjk", collection: "docs", query: "用户管理", limit: 5},
 		{name: "path", collection: "docs", query: "runbook", limit: 5},
 		{name: "title_weight", collection: "docs", query: "cache", limit: 2},
-		{name: "global_collection", collection: "", query: "query_source", limit: 5},
+		{name: "global_collection", collection: "", query: "operation_field", limit: 5},
 	}
 
 	for _, tc := range cases {
@@ -146,15 +146,15 @@ func TestSearchManyFusesIndependentQueriesWithRRF(t *testing.T) {
 	store := newReferenceSearchFixture(t, 0)
 	defer store.Close()
 
-	hits, err := store.SearchMany(ctx, "docs", []string{"root hint", "operational"}, SearchOptions{Limit: 5})
+	hits, err := store.SearchMany(ctx, "docs", []string{"user management", "operational"}, SearchOptions{Limit: 5})
 	if err != nil {
 		t.Fatalf("SearchMany: %v", err)
 	}
 	paths := searchResultPaths(hits)
-	if !strings.HasPrefix(paths, "ops/runbooks/dns.md,") {
+	if !strings.HasPrefix(paths, "ops/runbooks/operation.md,") {
 		t.Fatalf("paths = %s, want document matching both queries first", paths)
 	}
-	if !strings.Contains(paths, "root-hint.md") {
+	if !strings.Contains(paths, "user-management.md") {
 		t.Fatalf("paths = %s, want result from first independent query", paths)
 	}
 	if hits[0].Score != 1 {
@@ -193,10 +193,10 @@ func BenchmarkSearchCurrentAndReference(b *testing.B) {
 	store := newReferenceSearchFixture(b, 1200)
 	defer store.Close()
 	queries := []string{
-		"root hint",
+		"user management",
 		"multi-agent",
 		"2026.4.10",
-		"根提示",
+		"用户管理",
 		"cache",
 	}
 
@@ -245,13 +245,13 @@ func newReferenceSearchFixture(t testingFatalHelper, extraDocs int) *Store {
 	}
 
 	files := map[string]string{
-		"root-hint.md":          "# Root Hint\n\n根提示探测会检查 query_source 配置。\n\nroot hint runbook.\n",
-		"agent.md":              "# Multi Agent\n\nmulti-agent memory DEC-0054 version 2026.4.10 根提示.\n",
-		"sports.md":             "# Sports\n\nmulti-agent sports memory DEC-0054 version 2026.4.10.\n",
-		"title-cache.md":        "# Cache\n\nshort note\n",
-		"body-cache.md":         "# Misc\n\ncache cache cache cache cache cache cache cache cache cache\n",
-		"ops/runbooks/dns.md":   "# DNS Runbook\n\nroot hint operational steps.\n",
-		"ops/runbooks/cache.md": "# Cache Runbook\n\ncache operational checklist.\n",
+		"user-management.md":        "# 用户管理\n\n用户管理探测会检查 operation_field 配置。\n\nuser management runbook.\n",
+		"agent.md":                  "# Multi Agent\n\nmulti-agent memory DEC-0054 version 2026.4.10 用户管理.\n",
+		"sports.md":                 "# Sports\n\nmulti-agent sports memory DEC-0054 version 2026.4.10.\n",
+		"title-cache.md":            "# Cache\n\nshort note\n",
+		"body-cache.md":             "# Misc\n\ncache cache cache cache cache cache cache cache cache cache\n",
+		"ops/runbooks/operation.md": "# 操作流程\n\nuser management operational steps.\n",
+		"ops/runbooks/cache.md":     "# Cache Runbook\n\ncache operational checklist.\n",
 	}
 	for name, body := range files {
 		path := filepath.Join(docs, filepath.FromSlash(name))
@@ -263,7 +263,7 @@ func newReferenceSearchFixture(t testingFatalHelper, extraDocs int) *Store {
 		}
 	}
 	for i := 0; i < extraDocs; i++ {
-		body := fmt.Sprintf("# Generated %04d\n\nroot hint cache multi-agent version 2026.4.10 根提示 batch %04d.\n", i, i)
+		body := fmt.Sprintf("# Generated %04d\n\nuser management cache multi-agent version 2026.4.10 用户管理 batch %04d.\n", i, i)
 		name := filepath.Join(docs, fmt.Sprintf("generated/%04d.md", i))
 		if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil {
 			t.Fatalf("mkdir generated: %v", err)

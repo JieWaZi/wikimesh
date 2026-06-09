@@ -46,7 +46,7 @@
 
 ### Step 2：召回 top-K 候选
 
-先按 `devwiki.md` 做结构化入口搜索；命中低置信、噪声过大或无法排序时，再用 `wikimesh search workflow <query...> --project <project>` 召回 top-K Workflow 候选。多个关键词应作为多个参数传入，例如 `wikimesh search workflow 防脑裂 网关 ha-group gateway --project <project>`，不要合并成一个带空格的字符串。
+先按 `devwiki.md` 做结构化入口搜索；命中低置信、噪声过大或无法排序时，再用 `wikimesh search workflow <query...> --project <project>` 召回 top-K Workflow 候选。多个关键词应作为多个参数传入，例如 `wikimesh search workflow 用户管理 权限设置 审批流程 --project <project>`，不要合并成一个带空格的字符串。
 
 只有当 Wiki/workflow 候选不足以确认关联 Workflow 或代码入口，或用户明确要求当前代码实现、调用链、日志出处、配置读取点时，才进入本地代码搜索。
 

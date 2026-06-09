@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/JieWaZi/wikimesh/internal/app/wikiapp"
+	"github.com/JieWaZi/wikimesh/internal/app/wikiinit"
 	"github.com/JieWaZi/wikimesh/internal/ui"
 )
 
@@ -151,6 +153,11 @@ func runWikiRepoLink(out io.Writer, project, repoSlug, path string) error {
 	if err != nil {
 		return err
 	}
+	if info, err := os.Stat(abs); err != nil {
+		return err
+	} else if !info.IsDir() {
+		return fmt.Errorf(ui.Messages().ErrorCodeDirNotDirFmt, abs)
+	}
 	repo := wikiapp.CodeRepo{Name: filepath.Base(abs), Slug: repoSlug, Path: abs}
 	replaced := false
 	for i := range cfg.CodeRepos {
@@ -165,6 +172,13 @@ func runWikiRepoLink(out io.Writer, project, repoSlug, path string) error {
 		cfg.CodeRepos = append(cfg.CodeRepos, repo)
 	}
 	if err := wikiapp.SaveRepoConfig(cfg); err != nil {
+		return err
+	}
+	devwikiRoot := ""
+	if cfg.ActiveSource == wikiapp.SourceLocal && cfg.Sources.Local != nil {
+		devwikiRoot = cfg.Sources.Local.Path
+	}
+	if err := wikiinit.EnsureCodeRepoLink(abs, devwikiRoot, cfg.ProjectSlug); err != nil {
 		return err
 	}
 	_, err = fmt.Fprintf(out, ui.Messages().OutputWikiRepoLinkedFmt, repoSlug)

@@ -16,7 +16,7 @@ import (
 func TestQueryCommandJoinsQuestionAndDoesNotExposeStructuredQueries(t *testing.T) {
 	ctx := context.Background()
 	root := newQueryProjectRoot(t)
-	writeQueryDoc(t, root, "topics/root-hint.md", "# Root Hint\n\nroot hint operational steps.\n")
+	writeQueryDoc(t, root, "topics/user-management.md", "# 用户管理\n\nuser management operational steps.\n")
 	writeQueryQMDIndex(t, ctx, root)
 
 	cmd := NewCommand()
@@ -26,7 +26,7 @@ func TestQueryCommandJoinsQuestionAndDoesNotExposeStructuredQueries(t *testing.T
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&bytes.Buffer{})
-	cmd.SetArgs([]string{"root", "hint", "--root", root, "--no-rerank"})
+	cmd.SetArgs([]string{"user", "management", "--root", root, "--no-rerank"})
 	if err := cmd.ExecuteContext(ctx); err != nil {
 		t.Fatalf("ExecuteContext error = %v", err)
 	}
@@ -34,10 +34,10 @@ func TestQueryCommandJoinsQuestionAndDoesNotExposeStructuredQueries(t *testing.T
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatalf("parse output JSON: %v\n%s", err, out.String())
 	}
-	if result.Question != "root hint" {
+	if result.Question != "user management" {
 		t.Fatalf("Question = %q, want joined positional question", result.Question)
 	}
-	if len(result.Results) == 0 || result.Results[0].Path != "topics/root-hint.md" {
+	if len(result.Results) == 0 || result.Results[0].Path != "topics/user-management.md" {
 		t.Fatalf("results = %#v, want indexed topic hit", result.Results)
 	}
 }
@@ -46,8 +46,8 @@ func TestRunWikiQueryUsesProjectLocalSourceAndSearchQueries(t *testing.T) {
 	ctx := context.Background()
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	root := newQueryProjectRoot(t)
-	writeQueryDoc(t, root, "topics/root-hint.md", "# Root Hint\n\nroot hint runbook.\n")
-	writeQueryDoc(t, root, "workflows/dns.md", "# DNS Runbook\n\noperational recovery path.\n")
+	writeQueryDoc(t, root, "topics/user-management.md", "# 用户管理\n\nuser management runbook.\n")
+	writeQueryDoc(t, root, "workflows/operation.md", "# 操作流程\n\noperational recovery path.\n")
 	writeQueryQMDIndex(t, ctx, root)
 
 	if err := wikiapp.SaveRepoConfig(wikiapp.RepoConfig{
@@ -64,7 +64,7 @@ func TestRunWikiQueryUsesProjectLocalSourceAndSearchQueries(t *testing.T) {
 
 	var out bytes.Buffer
 	err := runWikiQuery(ctx, &out, "/missing-root", "sample", []string{"wiki"}, queryOptions{
-		question:      "where is root hint handled",
+		question:      "where is user management handled",
 		searchQueries: []string{"operational"},
 		limit:         5,
 		noRerank:      true,
@@ -72,7 +72,7 @@ func TestRunWikiQueryUsesProjectLocalSourceAndSearchQueries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("runWikiQuery error = %v", err)
 	}
-	if !strings.Contains(out.String(), "workflows/dns.md") {
+	if !strings.Contains(out.String(), "workflows/operation.md") {
 		t.Fatalf("output = %q, want auxiliary search-query to recall workflow doc", out.String())
 	}
 }

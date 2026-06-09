@@ -85,7 +85,7 @@ func TestCollectionUpdateAndSearchIndexesMarkdownAndCJK(t *testing.T) {
 	if err := os.MkdirAll(docs, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(docs, "root-hint.md"), []byte("---\ntag: dns\n---\n\n# Root Hint\n\n根提示探测会检查 query_source 配置。\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(docs, "user-management.md"), []byte("---\ntag: audit\n---\n\n# 用户管理\n\n用户管理探测会检查 operation_field 配置。\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -113,36 +113,36 @@ func TestCollectionUpdateAndSearchIndexesMarkdownAndCJK(t *testing.T) {
 	}
 	defer db.Close()
 	var storedDoc string
-	if err := db.QueryRow(`SELECT content FROM entries WHERE article_path = ?`, "root-hint.md").Scan(&storedDoc); err != nil {
+	if err := db.QueryRow(`SELECT content FROM entries WHERE article_path = ?`, "user-management.md").Scan(&storedDoc); err != nil {
 		t.Fatalf("query stored doc: %v", err)
 	}
-	wantDoc := "---\ntag: dns\n---\n\n# Root Hint\n\n根提示探测会检查 query_source 配置。\n"
+	wantDoc := "---\ntag: audit\n---\n\n# 用户管理\n\n用户管理探测会检查 operation_field 配置。\n"
 	if storedDoc != wantDoc {
 		t.Fatalf("stored doc = %q, want raw markdown", storedDoc)
 	}
 
-	frontmatterHits, err := store.Search(ctx, "docs", "dns", qmd.SearchOptions{Limit: 5})
+	frontmatterHits, err := store.Search(ctx, "docs", "audit", qmd.SearchOptions{Limit: 5})
 	if err != nil {
 		t.Fatalf("Search frontmatter: %v", err)
 	}
-	if len(frontmatterHits) != 1 || frontmatterHits[0].Path != "root-hint.md" {
-		t.Fatalf("Search frontmatter hits = %#v, want root-hint.md", frontmatterHits)
+	if len(frontmatterHits) != 1 || frontmatterHits[0].Path != "user-management.md" {
+		t.Fatalf("Search frontmatter hits = %#v, want user-management.md", frontmatterHits)
 	}
 
-	hits, err := store.Search(ctx, "docs", "query_source", qmd.SearchOptions{Limit: 5})
+	hits, err := store.Search(ctx, "docs", "operation_field", qmd.SearchOptions{Limit: 5})
 	if err != nil {
-		t.Fatalf("Search query_source: %v", err)
+		t.Fatalf("Search operation_field: %v", err)
 	}
-	if len(hits) != 1 || hits[0].Path != "root-hint.md" {
-		t.Fatalf("Search query_source hits = %#v, want root-hint.md", hits)
+	if len(hits) != 1 || hits[0].Path != "user-management.md" {
+		t.Fatalf("Search operation_field hits = %#v, want user-management.md", hits)
 	}
 
-	cjkHits, err := store.Search(ctx, "docs", "根提示", qmd.SearchOptions{Limit: 5})
+	cjkHits, err := store.Search(ctx, "docs", "用户管理", qmd.SearchOptions{Limit: 5})
 	if err != nil {
 		t.Fatalf("Search CJK: %v", err)
 	}
-	if len(cjkHits) != 1 || !strings.Contains(cjkHits[0].Snippet, "根提示") {
-		t.Fatalf("Search CJK hits = %#v, want snippet containing 根提示", cjkHits)
+	if len(cjkHits) != 1 || !strings.Contains(cjkHits[0].Snippet, "用户管理") {
+		t.Fatalf("Search CJK hits = %#v, want snippet containing 用户管理", cjkHits)
 	}
 }
 
@@ -281,7 +281,7 @@ func TestSearchSupportsLexSyntaxHyphenDottedNegationAndCJK(t *testing.T) {
 		t.Fatal(err)
 	}
 	files := map[string]string{
-		"agent.md":  "# Multi Agent\n\nmulti-agent memory DEC-0054 version 2026.4.10 根提示.\n",
+		"agent.md":  "# Multi Agent\n\nmulti-agent memory DEC-0054 version 2026.4.10 用户管理.\n",
 		"sports.md": "# Sports\n\nmulti-agent sports memory DEC-0054 version 2026.4.10.\n",
 	}
 	for name, body := range files {
@@ -310,7 +310,7 @@ func TestSearchSupportsLexSyntaxHyphenDottedNegationAndCJK(t *testing.T) {
 		{name: "hyphen", query: "multi-agent", want: "agent.md"},
 		{name: "dotted", query: "2026.4.10", want: "sports.md"},
 		{name: "negation", query: "memory -sports", want: "agent.md"},
-		{name: "cjk", query: "根提示", want: "agent.md"},
+		{name: "cjk", query: "用户管理", want: "agent.md"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -423,7 +423,7 @@ func TestSearchMatchesContinuousCJKText(t *testing.T) {
 	if err := os.MkdirAll(docs, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(docs, "cjk.md"), []byte("# DNS\n\n根提示探测流程记录。\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(docs, "cjk.md"), []byte("# 系统功能\n\n用户管理探测流程记录。\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -440,7 +440,7 @@ func TestSearchMatchesContinuousCJKText(t *testing.T) {
 		t.Fatalf("UpdateCollection: %v", err)
 	}
 
-	hits, err := store.Search(ctx, "docs", "根提示探测", qmd.SearchOptions{Limit: 3})
+	hits, err := store.Search(ctx, "docs", "用户管理探测", qmd.SearchOptions{Limit: 3})
 	if err != nil {
 		t.Fatalf("Search: %v", err)
 	}
@@ -456,7 +456,7 @@ func TestSearchMatchesCJKTextAdjacentToLatinText(t *testing.T) {
 	if err := os.MkdirAll(docs, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(docs, "mixed.md"), []byte("# DNS\n\nabc根提示def 仍然应该能被中文短语查询命中。\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(docs, "mixed.md"), []byte("# 系统功能\n\nabc用户管理def 仍然应该能被中文短语查询命中。\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -473,14 +473,14 @@ func TestSearchMatchesCJKTextAdjacentToLatinText(t *testing.T) {
 		t.Fatalf("UpdateCollection: %v", err)
 	}
 
-	hits, err := store.Search(ctx, "docs", "根提示", qmd.SearchOptions{Limit: 3})
+	hits, err := store.Search(ctx, "docs", "用户管理", qmd.SearchOptions{Limit: 3})
 	if err != nil {
 		t.Fatalf("Search: %v", err)
 	}
 	if len(hits) != 1 || hits[0].Path != "mixed.md" {
 		t.Fatalf("hits = %#v, want mixed.md", hits)
 	}
-	if !strings.Contains(hits[0].Snippet, "abc 根提示 def") {
+	if !strings.Contains(hits[0].Snippet, "abc 用户管理 def") {
 		t.Fatalf("snippet = %q, want restored CJK text with readable Latin boundaries", hits[0].Snippet)
 	}
 }

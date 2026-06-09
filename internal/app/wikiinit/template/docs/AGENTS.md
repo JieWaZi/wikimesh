@@ -28,6 +28,9 @@
 
 本目录就是 DevWiki 文档库根目录。代码库通过 AGENTS/CLAUDE 中的托管关联块指向本目录。Agent 在代码库内使用 `devwiki-query`、`devwiki-code` 或 `devwiki-code-to-doc` 前，必须先阅读本文件；查询以本目录的 `wiki/`、`raw/`、`.wikimesh/qmd.yaml` 为知识来源，生成的新 Wiki 文件也必须写回本目录。
 
+DevWiki project：`{{PROJECT_SLUG}}`。
+统一查询命令使用：`--project {{PROJECT_SLUG}}`。
+
 使用 `devwiki-query` 或 `devwiki-code` 时，必须严格遵循对应 Skill.md 的查询和定位步骤；禁止绕过 skill 流程自行做全仓广泛搜索或自由发挥式检索。
 
 `raw/` 是事实来源层，`wiki/` 是结构化知识层。`.wikimesh/qmd.yaml` 只保存检索配置，不替代事实内容。

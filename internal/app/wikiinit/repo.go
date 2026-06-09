@@ -60,7 +60,15 @@ func saveRepoConfig(targetDir string, opts Options) error {
 			Default: len(cfg.CodeRepos) == 0,
 		})
 	}
-	return wikiapp.SaveRepoConfig(cfg)
+	if err := wikiapp.SaveRepoConfig(cfg); err != nil {
+		return err
+	}
+	for _, repo := range cfg.CodeRepos {
+		if err := EnsureCodeRepoLink(repo.Path, targetDir, cfg.ProjectSlug); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // saveLinkedRepoConfig 将已有本地或远端文档库登记为用户级项目来源。
@@ -121,7 +129,14 @@ func linkCodeRepo(project, repoSlug, path string) error {
 	if !hasDefaultWikiCodeRepo(cfg.CodeRepos) && len(cfg.CodeRepos) > 0 {
 		cfg.CodeRepos[0].Default = true
 	}
-	return wikiapp.SaveRepoConfig(cfg)
+	if err := wikiapp.SaveRepoConfig(cfg); err != nil {
+		return err
+	}
+	devwikiRoot := ""
+	if cfg.ActiveSource == wikiapp.SourceLocal && cfg.Sources.Local != nil {
+		devwikiRoot = cfg.Sources.Local.Path
+	}
+	return EnsureCodeRepoLink(repo.Path, devwikiRoot, cfg.ProjectSlug)
 }
 
 // hasDefaultWikiCodeRepo 判断代码库列表是否已经存在默认项。

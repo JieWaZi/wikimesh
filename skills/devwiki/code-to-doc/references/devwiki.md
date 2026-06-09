@@ -117,7 +117,7 @@ wikimesh glossary keywords --project <project>
 - 存在 2 个以上 active 候选，且这些候选都能解释用户原词
 - 用户词包含泛化动作词，例如“探测、监控、同步、管理、策略、配置”，但没有明确业务限定
 - primary 候选只是“最像”，而不是和用户 `subject` 精确匹配
-- 候选之间属于不同业务族，例如拨测工具、Root Hint 监控、请求源地址监控、转发监控同时出现
+- 候选之间属于不同业务族，例如用户管理、权限管理、系统设置、审批流程同时出现
 
 只有满足以下条件时，才能跳过确认继续读 core/explain：
 
@@ -153,7 +153,7 @@ wikimesh glossary keywords --project <project>
 
 #### 用户可见候选展示
 
-用户可见的候选名称必须优先使用页面 title、glossary 术语或业务中文名。不要写成 `拨测工具 / dial-test`、`Root Hint 监控配置 / root-hint-monitoring` 这类“名称 / slug”格式。
+用户可见的候选名称必须优先使用页面 title、glossary 术语或业务中文名。不要写成 `用户管理 / user-management`、`权限设置 / permission-settings` 这类“名称 / slug”格式。
 
 `slug` 只用于内部定位、证据路径记录和执行 `wikimesh read` 命令；除非用户明确询问页面路径、slug、维护定位或命令参数，否则不要把 slug 混入普通功能解释、候选列表或确认问题。
 
@@ -215,7 +215,7 @@ wikimesh search glossary <query...> --project <project>
 ```bash
 wikimesh search topic <query...> --project <project>
 wikimesh search workflow <query...> --project <project>
-wikimesh search workflow 防脑裂 网关 ha-group gateway --project <project>
+wikimesh search workflow 用户管理 权限设置 审批流程 --project <project>
 ```
 
 - 多个关键词应作为多个参数传入，不要合并成一个带空格的字符串。

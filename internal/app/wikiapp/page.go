@@ -12,7 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var wikiSectionStart = regexp.MustCompile(`^<!--\s*wikimesh:section\s+id=([A-Za-z0-9_-]+)\s*-->\s*$`)
+var wikiSectionStart = regexp.MustCompile(`^<!--\s*(?:devwiki|wikimesh):section\s+id=([A-Za-z0-9_-]+)\s*-->\s*$`)
 
 type pageMeta struct {
 	Title   string `yaml:"title"`
@@ -73,7 +73,7 @@ func ListPages(root, kind string) ([]Page, error) {
 	return pages, nil
 }
 
-// ParsePage 解析 frontmatter 和 Wikimesh section 标记。
+// ParsePage 解析 frontmatter 和 Wiki section 标记。
 func ParsePage(root, rel string) (Page, error) {
 	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
 	if err != nil {
@@ -140,7 +140,7 @@ func parseWikiSections(body []byte) (map[string]string, error) {
 			buf.Reset()
 			continue
 		}
-		if strings.TrimSpace(line) == "<!-- /wikimesh:section -->" {
+		if isWikiSectionEnd(line) {
 			if current == "" {
 				return nil, fmt.Errorf("unexpected section end")
 			}
@@ -158,6 +158,16 @@ func parseWikiSections(body []byte) (map[string]string, error) {
 		return nil, fmt.Errorf("unclosed section %q", current)
 	}
 	return sections, nil
+}
+
+// isWikiSectionEnd 判断当前行是否是兼容的 section 结束标记。
+func isWikiSectionEnd(line string) bool {
+	switch strings.TrimSpace(line) {
+	case "<!-- /devwiki:section -->", "<!-- /wikimesh:section -->":
+		return true
+	default:
+		return false
+	}
 }
 
 // ReadMarkdownTable 读取文件中的第一个 Markdown 表格并返回数据行。

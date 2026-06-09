@@ -11,7 +11,7 @@ wikimesh query <完整自然语言问题...> --project <project>
 ```
 
 - 不再使用 `wikimesh qmd query` 作为 skill 查询入口；`qmd query` 只保留给 SDK/索引调试。
-- 位置参数必须是一句完整问题，例如“Root Hint 监控的状态变化和恢复流程是什么”，不要拆成多个关键词。
+- 位置参数必须是一句完整问题，例如“用户管理的状态变化和操作流程是什么”，不要拆成多个关键词。
 - `wikimesh query` 输出只是候选上下文，不是真相源；采用任何候选前必须回到 `wikimesh read <topic|workflow> <slug> --view card/core/explain --project <project>`。
 - 如果缺少向量索引，在文档库本地 source 根目录执行或提醒维护者执行 `wikimesh qmd embed`；顶层 query 负责 `--project` 解析，qmd 维护命令仍是工作区命令。
 
@@ -56,16 +56,16 @@ Agent 必须先按以下分工填写参数，不要把同一批关键词同时�
 推荐：
 
 ```bash
-wikimesh query "时间管理的配置、状态变化、同步规则和实现入口是什么？" --project <project>
-wikimesh query "Root Hint 监控的告警状态、恢复条件和实现入口是什么？" --project <project>
-wikimesh query "防脑裂保护涉及哪些触发条件、状态流和恢复流程？" --project <project>
+wikimesh query "用户管理的配置、状态变化和实现入口是什么？" --project <project>
+wikimesh query "权限管理的角色关系、状态变化和实现入口是什么？" --project <project>
+wikimesh query "系统设置涉及哪些触发条件、状态流和操作流程？" --project <project>
 ```
 
 不推荐：
 
 ```bash
-wikimesh query 时间管理 NTP 配置 同步 实现入口 --project <project>
-wikimesh query "时间管理 NTP config/time auth_keys master_ntpservers link_owners ntpdate" --project <project>
+wikimesh query 用户管理 权限管理 配置 状态 实现入口 --project <project>
+wikimesh query "用户管理 权限管理 系统设置 角色关系 操作记录" --project <project>
 ```
 
 ### Search Query 锚点选择
@@ -78,12 +78,12 @@ wikimesh query "时间管理 NTP config/time auth_keys master_ntpservers link_ow
 
 优先级：
 
-1. glossary 正式术语或页面 title 中的业务名：`时间管理`、`Root Hint 监控`。
-2. 稳定英文别名、配置项、接口名、错误码：`NTP`、`config/time`、`auth_keys`。
+1. glossary 正式术语或页面 title 中的业务名：`用户管理`、`权限管理`。
+2. 稳定别名、配置项、接口名、错误码：`用户账号`、`角色关系`、`操作记录`。
 3. 用户提供的明确锚点：日志关键字、API path、配置字段。
 4. 谨慎使用泛词：`同步`、`配置`、`状态`、`策略` 只能作为补充，不能单独作为锚点。
 
-如果一个锚点会明显引入其他业务族，例如只写 `同步` 会召回大量 DNS/RPZ/消息同步页面，应删除或替换为更具体的 `NTP 同步`、`RPZ 同步`、`配置下发`。
+如果一个锚点会明显引入其他业务族，例如只写 `同步` 会召回大量不同系统功能页面，应删除或替换为更具体的 `用户管理同步`、`权限策略同步`、`任务状态流转`。
 
 ## Intent 模板
 
@@ -111,18 +111,18 @@ wikimesh query "时间管理 NTP config/time auth_keys master_ntpservers link_ow
 优先使用“完整问题 + 意图 + 少量辅助锚点”：
 
 ```bash
-wikimesh query "时间管理涉及哪些配置、状态变化和实现入口？" --project <project> --intent "解释 Topic 的功能边界、配置规则、状态变化和联动关系" --search-query "时间管理" --search-query "NTP" --limit 5 --candidate-limit 30
+wikimesh query "用户管理涉及哪些配置、状态变化和实现入口？" --project <project> --intent "解释 Topic 的功能边界、配置规则、状态变化和联动关系" --search-query "用户管理" --search-query "权限管理" --limit 5 --candidate-limit 30
 ```
 
 更完整的例子：
 
 ```bash
-wikimesh query "时间管理的配置、状态变化、同步规则和实现入口是什么？" \
+wikimesh query "用户管理的配置、状态变化和实现入口是什么？" \
   --project <project> \
   --intent "解释 Topic 的功能边界、配置规则、状态变化和联动关系，并定位相关 Workflow 实现入口" \
-  --search-query "时间管理" \
-  --search-query "NTP" \
-  --search-query "config/time" \
+  --search-query "用户管理" \
+  --search-query "权限管理" \
+  --search-query "角色关系" \
   --limit 5 \
   --candidate-limit 30
 ```
@@ -131,14 +131,14 @@ wikimesh query "时间管理的配置、状态变化、同步规则和实现入�
 
 ```bash
 # 不推荐
-wikimesh query 时间管理 NTP 配置 同步 --project <project>
+wikimesh query 用户管理 权限管理 配置 状态 --project <project>
 ```
 
 如果只是多关键词入口定位，继续使用更便宜的结构化搜索：
 
 ```bash
-wikimesh search topic 时间管理 NTP 配置 同步 --project <project>
-wikimesh search workflow 时间管理 NTP 配置 同步 --project <project>
+wikimesh search topic 用户管理 权限管理 配置 状态 --project <project>
+wikimesh search workflow 用户管理 权限管理 配置 状态 --project <project>
 ```
 
 ## Limit 建议

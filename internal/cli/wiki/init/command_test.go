@@ -71,7 +71,7 @@ func TestRunWikiInitInstallsSkillsFromResolvedGitHubBundle(t *testing.T) {
 		t.Fatalf("ReadFile(AGENTS.md) error = %v", err)
 	}
 	runtime := string(runtimeData)
-	for _, want := range []string{"# DevWiki", "wikimesh read", "wikimesh search"} {
+	for _, want := range []string{"# DevWiki", "wikimesh read", "wikimesh search", "DevWiki project：`sample`。", "统一查询命令使用：`--project sample`。"} {
 		if !strings.Contains(runtime, want) {
 			t.Fatalf("AGENTS.md missing %q:\n%s", want, runtime)
 		}
@@ -257,6 +257,19 @@ func TestRunWikiInitCreateSavesExplicitCodeRepos(t *testing.T) {
 	if cfg.CodeRepos[0].Slug != "main-repo" || !samePath(t, cfg.CodeRepos[0].Path, codeRoot) || !cfg.CodeRepos[0].Default {
 		t.Fatalf("CodeRepos[0] = %#v, want default main-repo path %s", cfg.CodeRepos[0], codeRoot)
 	}
+
+	data, err := os.ReadFile(filepath.Join(codeRoot, "AGENTS.md"))
+	if err != nil {
+		t.Fatalf("ReadFile(code AGENTS.md) error = %v", err)
+	}
+	content := string(data)
+	targetDir := filepath.Join(root, "create-linked-code")
+	for _, want := range []string{"DevWiki project：`create-linked-code`。", "统一查询命令使用：`--project create-linked-code`。"} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("code AGENTS.md missing %q:\n%s", want, content)
+		}
+	}
+	assertContainsDevwikiRoot(t, content, targetDir)
 }
 
 func TestRunWikiInitCreateUsesProjectSlugDirectory(t *testing.T) {
@@ -309,7 +322,7 @@ func TestRunWikiInitCreateAnchorsQMDCollectionToProjectDirectory(t *testing.T) {
 	stubWikiSkillResolver(t)
 
 	err := runWikiInit(context.Background(), io.Discard, false, InitOptions{
-		ProjectName: "Huawei ZDDI Wiki New",
+		ProjectName: "Example Wiki New",
 		Agent:       "codex",
 		Yes:         true,
 	})
@@ -317,7 +330,7 @@ func TestRunWikiInitCreateAnchorsQMDCollectionToProjectDirectory(t *testing.T) {
 		t.Fatalf("runWikiInit error = %v", err)
 	}
 
-	targetDir := filepath.Join(root, "huawei-zddi-wiki-new")
+	targetDir := filepath.Join(root, "example-wiki-new")
 	cfg, err := qmd.LoadConfigFile(filepath.Join(targetDir, ".wikimesh", "qmd.yaml"))
 	if err != nil {
 		t.Fatalf("LoadConfigFile error = %v", err)
@@ -378,6 +391,18 @@ func TestRunWikiInitLinkLocalWikiRepo(t *testing.T) {
 	if !samePath(t, cfg.CodeRepos[0].Path, codeRoot) || cfg.CodeRepos[0].Slug != filepath.Base(codeRoot) || !cfg.CodeRepos[0].Default {
 		t.Fatalf("CodeRepos[0] = %#v, want linked default repo for %s", cfg.CodeRepos[0], codeRoot)
 	}
+
+	data, err := os.ReadFile(filepath.Join(codeRoot, "AGENTS.md"))
+	if err != nil {
+		t.Fatalf("ReadFile(code AGENTS.md) error = %v", err)
+	}
+	content := string(data)
+	for _, want := range []string{"DevWiki project：`linked-local`。", "统一查询命令使用：`--project linked-local`。"} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("code AGENTS.md missing %q:\n%s", want, content)
+		}
+	}
+	assertContainsDevwikiRoot(t, content, wikiRoot)
 }
 
 func TestRunWikiInitLinkUsesExplicitCodeRepoSlug(t *testing.T) {
@@ -741,6 +766,24 @@ func samePath(t *testing.T, got, want string) bool {
 		t.Fatalf("EvalSymlinks(%s) error = %v", want, err)
 	}
 	return gotEval == wantEval
+}
+
+func assertContainsDevwikiRoot(t *testing.T, content string, path string) {
+	t.Helper()
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		t.Fatalf("Abs(%s) error = %v", path, err)
+	}
+	candidates := []string{abs}
+	if eval, err := filepath.EvalSymlinks(abs); err == nil && eval != abs {
+		candidates = append(candidates, eval)
+	}
+	for _, candidate := range candidates {
+		if strings.Contains(content, "DevWiki 文档库根目录：`"+candidate+"`。") {
+			return
+		}
+	}
+	t.Fatalf("code AGENTS.md missing DevWiki root %v:\n%s", candidates, content)
 }
 
 func chdirInitTest(t *testing.T, dir string) {

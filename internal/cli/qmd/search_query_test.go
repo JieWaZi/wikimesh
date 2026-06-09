@@ -17,7 +17,7 @@ func TestRunTopLevelSearchUsesIndependentQueries(t *testing.T) {
 	defer store.Close()
 
 	var out bytes.Buffer
-	err := runTopLevelSearch(ctx, &out, store, []string{"docs"}, []string{"root hint", "operational"}, 5, 0, false, false, false)
+	err := runTopLevelSearch(ctx, &out, store, []string{"docs"}, []string{"user management", "operational"}, 5, 0, false, false, false)
 	if err != nil {
 		t.Fatalf("runTopLevelSearch: %v", err)
 	}
@@ -26,7 +26,7 @@ func TestRunTopLevelSearchUsesIndependentQueries(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &results); err != nil {
 		t.Fatalf("decode search output: %v", err)
 	}
-	if len(results) == 0 || results[0].Path != "ops/runbooks/dns.md" {
+	if len(results) == 0 || results[0].Path != "ops/runbooks/operation.md" {
 		t.Fatalf("results = %#v, want document matching both queries first", results)
 	}
 }
@@ -39,7 +39,7 @@ func TestRunTopLevelQueryUsesSearchQueries(t *testing.T) {
 	var out bytes.Buffer
 	err := runTopLevelQuery(ctx, &out, store, []string{"docs"}, queryCLIOptions{
 		question:      "combined retrieval",
-		searchQueries: []string{"root hint", "operational"},
+		searchQueries: []string{"user management", "operational"},
 		limit:         5,
 		noRerank:      true,
 	})
@@ -51,7 +51,7 @@ func TestRunTopLevelQueryUsesSearchQueries(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatalf("decode query output: %v", err)
 	}
-	if len(result.Results) == 0 || result.Results[0].Path != "ops/runbooks/dns.md" {
+	if len(result.Results) == 0 || result.Results[0].Path != "ops/runbooks/operation.md" {
 		t.Fatalf("results = %#v, want document matching both queries first", result.Results)
 	}
 }
@@ -65,8 +65,8 @@ func newQMDCommandSearchStore(t *testing.T) *qmd.Store {
 		t.Fatalf("mkdir docs: %v", err)
 	}
 	files := map[string]string{
-		"root-hint.md":        "# Root Hint\n\nroot hint runbook.\n",
-		"ops/runbooks/dns.md": "# DNS Runbook\n\nroot hint operational steps.\n",
+		"user-management.md":        "# 用户管理\n\nuser management runbook.\n",
+		"ops/runbooks/operation.md": "# 操作流程\n\nuser management operational steps.\n",
 	}
 	for name, body := range files {
 		path := filepath.Join(docs, filepath.FromSlash(name))
