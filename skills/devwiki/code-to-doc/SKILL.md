@@ -189,7 +189,7 @@ Topic 同步建议必须说明哪些代码结论可以用用户视角表达，�
 wikimesh check document
 wikimesh check graph
 # 在文档库本地 source 根目录执行
-wikimesh qmd collection update docs
+wikimesh qmd collection update
 wikimesh qmd embed
 ```
 

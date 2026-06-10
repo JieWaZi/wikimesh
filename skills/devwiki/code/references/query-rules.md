@@ -1,6 +1,6 @@
 # DevWiki Query 规则
 
-> 仅当结构化 `wikimesh search index/glossary/topic/workflow` 不足，需要第 3 档语义 query 时加载。本文件不替代 `devwiki.md` 的候选评分、证据路径和 view 读取协议。
+> 仅当结构化搜索不足，需要第 3 档语义 query 时加载。本文件不替代 `devwiki.md` 的候选评分、证据路径和 view 读取协议。
 
 ## 命令边界
 
@@ -41,7 +41,7 @@ Agent 必须先按以下分工填写参数，不要把同一批关键词同时�
 | `--intent` | 提示检索目标，帮助 query expansion、rerank 和 chunk 选择 | “解释/定位/比较/排障/维护”这类动作 + 证据需求 | 单个关键词、页面标题、slug、文件路径 |
 | `--search-query` | 显式 FTS 锚点，用于纠偏和补召回 | 正式术语、别名、接口名、配置项、错误码、短 slug 片段 | 泛词、完整自然语言句子、超过 6 个未筛选关键词 |
 
-如果无法区分这三类内容，先回到 `wikimesh search index/glossary/topic/workflow` 做结构化定位，不要直接构造一个很长的 query。
+如果无法区分这三类内容，先回到 index/glossary 和已选目录做结构化定位，不要直接构造一个很长的 query。
 
 ### Question 写法
 
@@ -182,4 +182,4 @@ qmd 报错、超时、collection 未注册、向量缺失、cache 不可写或 r
 本轮 query 不可用，已降级为 DevWiki 结构化入口搜索；结论只基于本轮可读证据。
 ```
 
-随后回到 `wikimesh search index/glossary/topic/workflow` 和 card/core/explain 读取流程。
+随后回到 index/glossary、已选目录搜索和 card/core/explain 读取流程。

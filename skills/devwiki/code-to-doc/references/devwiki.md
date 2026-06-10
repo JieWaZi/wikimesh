@@ -18,10 +18,10 @@
 基础顺序：
 
 ```text
-意图识别 → 必要时 glossary keywords 术语对齐 → wikimesh search index → wikimesh search glossary → wikimesh search topic/workflow → 必要时加载 query-rules.md 后使用 wikimesh query → raw/code 核对
+意图识别 → 必要时 glossary keywords 术语对齐 → wikimesh search index → wikimesh search glossary → 选定 topic 或 workflow 后搜索 → 必要时加载 query-rules.md 后使用 wikimesh query → raw/code 核对
 ```
 
-任一阶段拿到足够强的 top-K 且置信足够即停；不要为了“保险”无边界扩大搜索。
+每次只执行一个 `wikimesh` 命令，读取输出后再决定下一步。任一阶段拿到足够强的 top-K 且置信足够即停；不要为了“保险”无边界扩大搜索。
 
 ### 意图识别
 
@@ -30,8 +30,8 @@
 | `locate_exact` | 文件在哪里、哪个函数定义、哪个接口注册、错误码在哪里 | 本地 Wiki / 必要时本地代码精确定位 |
 | `explain_topic` | 某功能是什么、怎么工作、有哪些边界 | `wikimesh search index/glossary`；低置信或噪声大时升到 `wikimesh search topic` |
 | `trace_implementation` | 怎么实现、调用链怎么走、状态写到哪里 | query 场景先读 Wiki/workflow；缺少代码锚点且明确要求当前代码核查时，建议显式使用 `$devwiki-code` |
-| `troubleshoot` | 报错原因、不生效怎么查、日志从哪里来 | 先找 workflow/topic 候选；troubleshooting 可作为页面内容和导航线索，再按需核对 raw/code |
-| `design_intent` | 为什么这么设计、整体架构是什么 | `wikimesh search index/glossary`；不足时 `wikimesh search`，再不足才加载 `references/query-rules.md` 使用 `wikimesh query` |
+| `troubleshoot` | 报错原因、不生效怎么查、日志从哪里来 | 先按 index/glossary 选择一个目录；troubleshooting 可作为页面内容和导航线索，再按需核对 raw/code |
+| `design_intent` | 为什么这么设计、整体架构是什么 | `wikimesh search index/glossary`；不足时先选 topic 或 workflow，再不足才加载 `references/query-rules.md` 使用 `wikimesh query` |
 | `wiki_maintenance` | 页面是否重复、过期、冲突、query 是否会命中旧内容 | 本地 Wiki 审计 + `wikimesh search/status/update` 按需验证 |
 
 不要把所有关键词都当成精确锚点。`ssh`、`vip`、`auth`、`token`、`query`、`sync` 这类短词只是中锚点；如果用户问“怎么实现 / 怎么设计 / 怎么排障”，不能因为本地命中这些短词就停止。
@@ -62,7 +62,7 @@
 wikimesh glossary keywords --project <project>
 ```
 
-该命令只逐行返回 `wiki/glossary.md` 的 `glossary` 列，用作项目术语先验和语义纠偏，不是真相源，也不能直接作为事实依据。agent 应从关键词列表中选出 0-5 个可能正式术语或别名，和用户原始问题一起作为后续 `search index/glossary/topic/workflow` 的查询词。
+该命令只逐行返回 `wiki/glossary.md` 的 `glossary` 列，用作项目术语先验和语义纠偏，不是真相源，也不能直接作为事实依据。agent 应从关键词列表中选出 0-5 个可能正式术语或别名，和用户原始问题一起作为后续结构化搜索的查询词。
 
 #### Glossary Alignment Gate
 
@@ -205,23 +205,23 @@ wikimesh search glossary <query...> --project <project>
 |---|---|---|
 | high | index/glossary 命中 1-5 个入口；`type` 与意图一致；`description` 明确覆盖用户问题 | 唯一 high 且无竞争候选时可说明依据后读取命中页；多个 high 或边界不清时进入用户确认门 |
 | medium | 命中 6-20 条；有 2-4 个候选入口；需要读 card 后判断主页面 | 必要时只读 card 帮助排序，然后进入用户确认门；仍无法排序则升档 |
-| low | 0 命中；超过 20 条散点命中；短词命中过泛；active/deprecated/report 混杂；页面冲突；无法判断权威页 | 必要时先用 `glossary keywords` 做术语对齐，再升档到 `wikimesh search <topic|workflow> <query...> --project <project>`；升档后找到候选再进入 Evidence Path；仍无可靠候选时再向用户反馈并请求补充锚点 |
+| low | 0 命中；超过 20 条散点命中；短词命中过泛；active/deprecated/report 混杂；页面冲突；无法判断权威页 | 必要时先用 `glossary keywords` 做术语对齐，再从 index/glossary 提取 1-3 个正式候选并选择一个目录升档；仍无可靠候选时再请求补充锚点 |
 
 
 ### 第 2 档：Topic / Workflow Search
 
-当 index/glossary 低置信、噪声过大、无法排序，或问题本身偏语义/主题类时，使用 `wikimesh search topic/workflow`：
+当 index/glossary 低置信、噪声过大或无法排序时，先选择唯一目录，再执行下一档搜索。禁止同时搜索 topic 和 workflow。
 
 ```bash
-wikimesh search topic <query...> --project <project>
-wikimesh search workflow <query...> --project <project>
-wikimesh search workflow 用户管理 权限设置 审批流程 --project <project>
+wikimesh search <topic|workflow> <query...> --project <project>
 ```
 
+- 功能、配置、边界、对外口径优先选 `topic`；实现入口、调用链、数据流优先选 `workflow`。
 - 多个关键词应作为多个参数传入，不要合并成一个带空格的字符串。
 - 多 query 结果使用 RRF（Reciprocal Rank Fusion）按各关键词下的排名融合排序，`score` 为融合后的相对分。
-- `wikimesh search topic/workflow` 底层调用 `qmd search`，不依赖向量，CPU 友好，适合作为结构化入口搜索的升档。
-- `wikimesh search topic/workflow` 默认输出 `|slug|title|score|` pipe table。
+- 只用 index/glossary 筛出的 1-3 个正式候选或页面 title 升档，不要把原始长关键词原样传下去。
+- `wikimesh search <topic|workflow>` 底层调用 `qmd search`，不依赖向量，CPU 友好，适合作为结构化入口搜索的升档。
+- `wikimesh search <topic|workflow>` 默认输出 `|slug|title|score|` pipe table。
 - `wikimesh search` 命中只是候选排序，最终结论必须回到真实 `wiki/`、`raw/` 或已核对代码文件。
 
 ### 第 3 档：Semantic Query
@@ -229,7 +229,7 @@ wikimesh search workflow 用户管理 权限设置 审批流程 --project <proje
 只有 `wikimesh search` 和结构化入口搜索仍不足，且问题本身是概念、设计、意图、跨页面关系、排障链路或维护审计类时，才加载 `references/query-rules.md` 并使用 `wikimesh query <question...> --project <project>`。
 
 - `wikimesh query` 的位置参数是一句完整自然语言问题，不是多个关键词。
-- 多关键词召回继续优先使用 `wikimesh search topic/workflow <query...>`。
+- 多关键词召回继续优先使用已选目录的 `wikimesh search <topic|workflow> <query...>`。
 - query 参数、`--search-query` 辅助锚点、`--intent` 写法、limit 建议和 fallback 规则全部放在 `references/query-rules.md`，需要进入第 3 档时再加载。
 
 ### qmd 失败 fallback
@@ -264,7 +264,7 @@ wikimesh read <topic|workflow> <slug> --view explain --project <project>
 5. locate_code 只进入 Workflow 文档层面；locate_code 默认回答 Workflow 文档中的实现入口、模块职责、状态流/数据流、副作用和文档中已记录的代码线索。
 6. 如果文档不足以支撑当前代码事实，不要静默查代码；说明知识缺口。缺少代码锚点且需要 DevWiki 定位入口时，建议显式使用 `$devwiki-code` 做代码核查；已有明确锚点时，按普通代码查看处理。
 8. 读取 view 时遵守知识经济学放置规则：先用 card 判断命中，再用 core 回答主问题，只有 core 不够时读取 explain。
-9. 搜索和读取串行降级，不并行：`wikimesh search index` → `wikimesh search glossary` → `wikimesh search topic/workflow`，候选逐个 card 验证，只有 Evidence Path 为 high 或用户确认 medium 路径后才往下走。
+9. 搜索和读取串行降级，不并行：`wikimesh search index` → `wikimesh search glossary` → 选择一个目录搜索，候选逐个 card 验证，只有 Evidence Path 为 high 或用户确认 medium 路径后才往下走。
 10. 没有可靠候选、没有独立 Topic/Workflow 或用户未确认候选时，不组织推断性答案；只输出“当前 Project Brain 没有足够信息支持该结论。”、检索过的入口和可补充的锚点。
 
 ## 目录选择规则

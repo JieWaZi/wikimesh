@@ -191,7 +191,7 @@ visibility: internal
 
 ```bash
 # 在文档库本地 source 根目录执行
-wikimesh qmd collection update docs
+wikimesh qmd collection update
 wikimesh qmd embed
 ```
 

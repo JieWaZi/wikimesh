@@ -56,7 +56,7 @@ argument-hint: "<问题>"
 按 `references/devwiki.md` 的结构化定位规则串行搜索：
 
 ```text
-glossary keywords → index → glossary → topic/workflow → 必要时加载 query-rules.md 后使用 wikimesh query
+glossary keywords → index → glossary → 选择 topic 或 workflow → 必要时加载 query-rules.md 后使用 wikimesh query
 ```
 
 - 定位和读取必须服从 `references/devwiki.md` 的 Glossary Alignment、Competitor Check、Card Scoring、Evidence Path 和 Confirmation Actions。

@@ -189,7 +189,7 @@ wikimesh update
 ```sh
 wikimesh qmd collection add ./docs --name docs
 wikimesh qmd collection list
-wikimesh qmd collection update docs
+wikimesh qmd collection update
 wikimesh qmd update
 wikimesh qmd update --pull
 wikimesh qmd status
