@@ -3,6 +3,8 @@ package cli
 import (
 	"github.com/spf13/cobra"
 
+	agentcmd "github.com/JieWaZi/wikimesh/internal/cli/agent"
+	daemoncmd "github.com/JieWaZi/wikimesh/internal/cli/daemon"
 	qmdcmd "github.com/JieWaZi/wikimesh/internal/cli/qmd"
 	skillcmd "github.com/JieWaZi/wikimesh/internal/cli/skill"
 	updatecmd "github.com/JieWaZi/wikimesh/internal/cli/update"
@@ -24,6 +26,8 @@ func NewRootCmd() *cobra.Command {
 	}
 	root.CompletionOptions.DisableDefaultCmd = true
 	root.AddCommand(wiki.Commands()...)
+	root.AddCommand(agentcmd.NewCommand())
+	root.AddCommand(daemoncmd.NewCommand())
 	root.AddCommand(updatecmd.NewCommand())
 	root.AddCommand(skillcmd.NewCommand())
 	root.AddCommand(qmdcmd.NewCommand())
