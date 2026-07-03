@@ -18,7 +18,7 @@
 基础顺序：
 
 ```text
-意图识别 → 必要时 glossary keywords 术语对齐 → wikimesh search index → wikimesh search glossary → 选定 topic 或 workflow 后搜索 → 必要时加载 query-rules.md 后使用 wikimesh query → raw/code 核对
+意图识别 → wikimesh search index → wikimesh search glossary → Scope Stability Check → 必要时 glossary keywords 术语对齐 → 选定 topic 或 workflow 后搜索 → 必要时加载 query-rules.md 后使用 wikimesh query → raw/code 核对
 ```
 
 每次只执行一个 `wikimesh` 命令，读取输出后再决定下一步。任一阶段拿到足够强的 top-K 且置信足够即停；不要为了“保险”无边界扩大搜索。
@@ -54,15 +54,27 @@
 - `anchors`：用户提供的明确锚点
 - `negative_scope`：用户没有要求的内容，例如未要求当前代码核查、未要求实现细节、未要求修改
 
+### Step 1.5: Scope Stability Check
+
+读取 core/explain 前，结合用户原话与 `wikimesh search index/glossary` 结果判断范围稳定性：
+
+- `stable_narrow`：存在唯一明显主候选，且标题、术语或 description 覆盖用户 `subject` 与 `intent_type`；候选类型匹配；没有同等合理竞争候选；用户没有表达范围扩大。继续 card → core 路径，不做横向扩展。
+- `unstable`：没有唯一明显主候选；多个候选都能解释用户问题；用户词是简称、口语或上位概念；top candidate 描述不能覆盖 `intent_type`；index/glossary top 候选冲突；或候选类型与用户意图不匹配。只读候选 card 并确认范围；必要时再调用 `glossary keywords` 或范围判定子代理。
+- `stable_broad`：用户明确要求整体、清单、关系、组合、对比、覆盖范围，或确认不是单个候选。基于 index/glossary 构造候选池，并执行最小覆盖检查。
+
+候选多只代表 `unstable`，不代表 `stable_broad`；只有用户语义明确要求多候选答案时才进入宽范围路径。`stable_narrow` 不执行覆盖检查，避免影响单主题查询效率。
+
+如果环境支持子代理，且 agent 无法在 `unstable` 与 `stable_broad` 之间稳定判断，可以调用只做范围判定的子代理。输入只包含用户问题、index/glossary 候选和已读 card 摘要；不要传完整正文。子代理只返回 `scope / subject / include_candidates / exclude_candidates / reason`，不得回答业务事实。
+
 ### Step 2: Glossary Keywords 术语对齐
 
-当 Intent Profile 的 `subject` / `anchors` 不稳定，或用户问题包含短词、简称、口语词、宽泛领域词、多个相邻主题时，先调用：
+当 Scope Stability Check 为 `unstable` 且 search 结果不足以判定候选，或 Intent Profile 的 `subject` / `anchors` 不稳定时，调用：
 
 ```bash
 wikimesh glossary keywords --project <project>
 ```
 
-该命令只逐行返回 `wiki/glossary.md` 的 `glossary` 列，用作项目术语先验和语义纠偏，不是真相源，也不能直接作为事实依据。agent 应从关键词列表中选出 0-5 个可能正式术语或别名，和用户原始问题一起作为后续结构化搜索的查询词。
+该命令只逐行返回 `wiki/glossary.md` 的 `glossary` 列，用作项目术语先验和语义纠偏，不是真相源，也不能直接作为事实依据。`stable_narrow` / `unstable` 场景从关键词列表中选出 0-5 个可能正式术语或别名，和用户原始问题一起作为后续结构化搜索的查询词；`stable_broad` 场景先保留同一用户范围内的候选池，再在 Evidence Path 中裁剪。
 
 #### Glossary Alignment Gate
 
@@ -71,7 +83,7 @@ wikimesh glossary keywords --project <project>
 - `exact_term` / `candidate_terms` / `generic_terms` / `ambiguity`
 - `exact_term`：用户原词是否命中 glossary 中的正式术语、slug、页面标题、接口、配置项或错误码
 - `candidate_terms`：从 glossary 中选出的 0-5 个正式候选或常用别名
-- `generic_terms`：用户词中只表示领域动作、不表示稳定主题的泛词，例如“探测、监控、同步、管理、配置、策略、查询”
+- `generic_terms`：用户词中只表示动作、集合或上位概念，不表示稳定主题的泛词
 - `ambiguity`：是否存在多个候选主题都能合理解释用户原词
 
 搜索词构造规则：
@@ -115,7 +127,7 @@ wikimesh glossary keywords --project <project>
 
 - 用户原词不是 glossary 正式术语、slug、页面标题、接口、配置项或错误码
 - 存在 2 个以上 active 候选，且这些候选都能解释用户原词
-- 用户词包含泛化动作词，例如“探测、监控、同步、管理、策略、配置”，但没有明确业务限定
+- 用户词只包含泛化动作或上位集合，但没有明确范围限定
 - primary 候选只是“最像”，而不是和用户 `subject` 精确匹配
 - 候选之间属于不同业务族，例如用户管理、权限管理、系统设置、审批流程同时出现
 
@@ -150,6 +162,15 @@ wikimesh glossary keywords --project <project>
 - `excluded`：命中但不采用，并说明排除原因，避免跑偏
 
 单主题问题通常选择 1 个 `primary` 和 0-2 个 `supporting`。关系、联动、比较、排障和跨流程问题允许多个 Topic / Workflow / Troubleshooting 联合回答，但每个页面必须有明确角色，禁止把无角色的零散命中拼成新主题、新能力或推荐口径。
+
+#### 宽范围最小覆盖检查
+
+仅当 Scope Stability Check 为 `stable_broad` 时执行：
+
+- 从 index/glossary 结果中保留同一用户范围内的候选，并标记为 `primary` / `supporting` / `excluded`。
+- 对 `primary` 读取 core；对 `supporting` 至少读取 card，或在答案中列为“相关但未展开”并说明原因。
+- 已读 card/core 的边界、关联入口或相关页面出现新的同范围候选时，必须纳入 `supporting` 或写入 `excluded`。
+- 最终回答不得声称覆盖完整范围，除非同范围候选都已处理或说明未展开原因。
 
 #### 用户可见候选展示
 
@@ -192,9 +213,10 @@ medium / low 必须在读取 core/explain 前停止，不得先读取 core/expla
 默认先检索 DevWiki 结构化入口：
 
 ```bash
-wikimesh glossary keywords --project <project>
 wikimesh search index <query...> --project <project>
 wikimesh search glossary <query...> --project <project>
+# 当 Scope Stability Check 为 unstable 且 search 结果不足时再调用：
+wikimesh glossary keywords --project <project>
 ```
 
 `glossary keywords` 逐行返回 glossary 关键词，只用于术语对齐。`search index` 默认输出 `|slug|type|description|` pipe table；`search glossary` 默认输出 `|slug|glossary|type|description|` pipe table；在 `--project` 下由 CLI 根据统一配置选择本地文档库或远端 HTTP API，不输出 `score`。agent 必须根据 `description`、card 和用户问题做语义打分。

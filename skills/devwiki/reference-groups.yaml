@@ -56,3 +56,11 @@ references:
       - ingest/references/evidence-grounding.md
       - topic/references/evidence-grounding.md
       - workflow/references/evidence-grounding.md
+
+  graphify-bridge.md:
+    targets:
+      - query/references/graphify-bridge.md
+      - code/references/graphify-bridge.md
+      - code-to-doc/references/graphify-bridge.md
+      - maintain/references/graphify-bridge.md
+      - workflow/references/graphify-bridge.md

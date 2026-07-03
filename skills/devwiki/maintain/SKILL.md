@@ -24,6 +24,7 @@ index/glossary   = query 入口控制层
 - `references/devwiki.md`：定位 project、搜索关联文档、读取 view、判断目录和权威来源。
 - `references/evidence-grounding.md`：判断事实、推断、来源和冲突。
 - `references/code-tracing.md`：涉及代码核对、代码归因或最新实现时读取。
+- `references/graphify-bridge.md`：需要 Graphify 辅助定位 Wiki / Code 候选时读取；Graphify 不可用时继续原生流程。
 - `references/mutation-safety.md`：涉及删除、重命名、拆分、合并、破坏性操作或高风险冲突时读取。
 - `references/common-file-format.md`：涉及 `wiki/index.md`、`wiki/glossary.md` 或 `wiki/log.md` 更新时读取。
 - 需要语义升档时，先按 `references/devwiki.md` 判断是否进入第 3 档；需要时再加载 `references/query-rules.md` 使用 `wikimesh query`。

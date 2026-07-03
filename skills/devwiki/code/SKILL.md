@@ -84,8 +84,18 @@ Code 不是 Query，也不是 Code-to-Doc：本 Skill 的目标是修改当前�
 
 - `references/devwiki.md`：确定 project、结构化搜索、card/core/explain 读取和 `code_repos[].path`。
 - `references/code-tracing.md`：进入真实代码核对前读取。
+- `references/graphify-bridge.md`：每个用户问题进入定位流程时读取并执行一次 Graphify Bridge Gate，后续搜索复用 `Graphify Context`；Graphify 不可用时继续原生流程。
 
 首次开发模式下，按以下顺序定位知识。
+
+### Phase 0.5：Graphify Bridge Gate
+
+进入结构化搜索或代码搜索前，必须按 `references/graphify-bridge.md` 执行 Graphify Bridge Gate：
+
+- Wiki Graph 只用于召回 Topic / Workflow 候选；候选必须回到 `wikimesh read ... --view card/core` 验证。
+- Code Graph 只用于召回候选 file / symbol；候选必须回到真实代码核对。
+- Bridge 返回 low、fallback 或无法映射时，继续现有 Workflow 定位和有界 `rg`。
+- 不要因为 Graphify 命中就跳过 Workflow core，也不要把 Graphify 输出当最终事实。
 
 第一轮只能使用workflow进行代码定位。如果第一轮的信息不足，正在第二轮使用topic补充。最多进行两轮。两轮搜索没有新增有效候选，停止盲搜并向用户提问。不要不断换关键词、不断全仓搜索。
 

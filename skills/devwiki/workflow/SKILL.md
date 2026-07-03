@@ -39,6 +39,7 @@ Workflow 不复制 Topic 的完整业务说明。功能边界、产品规则和�
 
 - `references/workflow_template.md`：创建或重写 Workflow 时必须读取；
 - `references/code-tracing.md`：需要代码追踪、代码归因或实现核对时读取；
+- `references/graphify-bridge.md`：需要 Graphify 辅助定位 Workflow 候选、代码文件或 symbol 时读取；Graphify 不可用时继续原生流程。
 - `references/evidence-grounding.md`：判断事实来源、推断和证据放置时读取；
 - `references/knowledge-placement.md`：判断内容应该进入 card、core、explain 还是保留 raw 时读取；
 - `references/mutation-safety.md`：任何写入、重命名、拆分、合并或关系调整前读取；

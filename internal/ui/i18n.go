@@ -66,10 +66,6 @@ type Catalog struct {
 	WikiSkillShort string
 	// WikiSkillInstallShort 是 skill install 命令说明。
 	WikiSkillInstallShort string
-	// WikiSkillRefsShort 是 skill refs 分组说明。
-	WikiSkillRefsShort string
-	// WikiSkillRefsSyncShort 是 skill refs sync 命令说明。
-	WikiSkillRefsSyncShort string
 	// WikiCheckShort 是 check 命令说明。
 	WikiCheckShort string
 	// FlagAgent 是 agent 参数说明。
@@ -270,8 +266,6 @@ type Catalog struct {
 	OutputWikiRepoLinkedFmt string
 	// OutputWikiRepoActiveFmt 是 repo use 的激活来源输出模板。
 	OutputWikiRepoActiveFmt string
-	// OutputWikiRefsFmt 是 skill refs 同步输出模板。
-	OutputWikiRefsFmt string
 	// OutputWikiSkillsInstalledFmt 是 skill install/update 的安装输出模板。
 	OutputWikiSkillsInstalledFmt string
 	// OutputWikiCheckIssueFmt 是文档校验问题输出模板。
@@ -381,8 +375,6 @@ var defaultCatalog = Catalog{
 	WikiRepoInfoShort:                   "查看 Wikimesh 项目来源信息",
 	WikiSkillShort:                      "管理 Wikimesh skills",
 	WikiSkillInstallShort:               "安装 Wikimesh skills",
-	WikiSkillRefsShort:                  "维护 Wikimesh skill 引用",
-	WikiSkillRefsSyncShort:              "同步 Wikimesh skill 共享引用",
 	WikiCheckShort:                      "校验 Wikimesh 文档",
 	FlagAgent:                           "目标 Agent：codex、cursor、claude",
 	FlagCodeDir:                         "代码仓目录，可重复传入多个目录",
@@ -483,7 +475,6 @@ var defaultCatalog = Catalog{
 	OutputWikiRepoSavedFmt:              "已保存 Wikimesh 项目：%s\n",
 	OutputWikiRepoLinkedFmt:             "已关联代码仓：%s\n",
 	OutputWikiRepoActiveFmt:             "当前来源：%s\n",
-	OutputWikiRefsFmt:                   "Wikimesh skill 引用%s完成\n",
 	OutputWikiSkillsInstalledFmt:        "已为 %s 安装 %s 的 %d 个 Wikimesh skill\n",
 	OutputWikiCheckIssueFmt:             "错误 %s\n",
 	OutputWikiCheckPassedFmt:            "Wikimesh 文档校验通过（%d 个文件）\n",

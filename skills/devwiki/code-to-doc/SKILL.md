@@ -14,6 +14,7 @@ argument-hint: "<功能名称、接口 URL、关键文件、关键函数、路�
 - `references/devwiki.md`
 - 涉及写入、重分类或破坏性操作时，再读 `references/mutation-safety.md`
 - 涉及代码追踪、代码归因或实现核对时，再读 `references/code-tracing.md`
+- 进入 Wiki 定位、raw/code 搜索或代码追踪前，读 `references/graphify-bridge.md` 并执行一次 Graphify Bridge Gate，后续搜索复用 `Graphify Context`；Graphify 不可用时继续原生流程。
 - 涉及 `wiki/index.md`、`wiki/glossary.md` 或 `wiki/log.md` 更新时，再读 `references/common-file-format.md`
 - 需要语义升档时，先按 `references/devwiki.md` 判断是否进入第 3 档；需要时再加载 `references/query-rules.md` 使用 `wikimesh query`
 
@@ -62,6 +63,8 @@ Code-to-doc 不是模板写作 Skill，而是代码理解与证据追踪 Skill�
    - 代码事实必须先转成产品表达，再进入 Topic。
    - Topic 不写代码引用，只链接 Workflow。
    - Topic 的 sources 不写代码文件路径或 `kind: code`。
+
+Graphify 只能帮助找候选入口、邻接节点和已有页面归属；Code-to-Doc 的写入建议仍必须由当前代码核对、Wiki/raw 证据和 proposal 支撑。
 
 3. 必要时更新 `wiki/troubleshooting/<slug>.md`
    - 仅当输入锚点是日志、错误码、异常现象，或代码追踪确认了诊断/恢复路径时更新。

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-go run ./cmd/wikimesh skill refs sync
-env -u GOROOT go test ./internal/cli/common -run 'TestDevwikiReferenceGroupsAreSyncable|TestDevwikiSharedReferencesAreComplete|TestDevwikiSkillReferencesAreMinimal'
+env -u GOROOT go test ./internal/app/skillapp -run 'TestDevwikiReferenceGroupsAreSyncable|TestDevwikiSharedReferencesAreComplete|TestDevwikiSkillReferencesAreMinimal'

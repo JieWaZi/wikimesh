@@ -29,6 +29,7 @@ pkg/qmd/extract                      文档读取、标题提取和 chunk 切分
 pkg/qmd/index                        SQLite、FTS5、chunk 元数据和向量表
 pkg/qmd/llamaruntime                 llama.cpp 运行时库安装
 skills/devwiki                       本仓库内置的 DevWiki runtime skills
+skills/devwiki/share-references      DevWiki skills 共享引用源，由 reference-groups.yaml 映射到各 skill
 ```
 
 核心边界：
@@ -68,6 +69,7 @@ Wikimesh 当前支持：
 
 - 初始化 Wikimesh/DevWiki 工作区，生成 `raw/`、`wiki/`、`.wikimesh/qmd.yaml` 和目标 agent 的运行时入口文件。
 - 安装本仓库内置 runtime skills；当前内置 Wiki 类型是 `devwiki`，面向软件工程知识库。
+- 维护 DevWiki runtime skills 的共享引用；`share-references/` 是源文件，`reference-groups.yaml` 声明需要同步到哪些 skill。
 - 读取和搜索 `topic` / `workflow` 页面视图，并校验一等知识页面的 `card`、`core`、`explain` section。
 - 管理项目来源：登记本地或远端 Wiki 项目、关联代码仓、切换当前激活来源、输出来源配置。
 - 管理 qmd collection：新增、列出、删除和刷新索引。
@@ -336,6 +338,12 @@ go list -f '{{.ImportPath}} -> {{join .Imports ","}}' ./...
 
 ```sh
 git config core.hooksPath .githooks
+```
+
+当前 pre-commit hook 会运行 DevWiki skill reference 一致性测试，确保 `skills/devwiki/share-references/*.md` 已按 `skills/devwiki/reference-groups.yaml` 同步到各 skill 的 `references/` 目录。Wikimesh 当前不提供 `wikimesh skill refs sync` 命令；维护共享引用时直接修改 `share-references/`、更新 `reference-groups.yaml`，再运行：
+
+```sh
+env -u GOROOT GOCACHE=$(pwd)/.cache/go-build go test ./internal/app/skillapp -run 'TestDevwikiReferenceGroupsAreSyncable|TestDevwikiSharedReferencesAreComplete|TestDevwikiSkillReferencesAreMinimal'
 ```
 
 ## SDK 文档

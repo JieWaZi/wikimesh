@@ -5,3 +5,4 @@ cmd/wikimesh/wikimesh
 ./docs
 .agents
 wikimesh
+.DS_Store

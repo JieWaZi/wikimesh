@@ -13,6 +13,7 @@ argument-hint: "<问题>"
 - **视图分层读取**：先用 `--view card` 判断命中，再用 `--view core` 回答主问题，只有 core 不够时读 `--view explain`。card 只放判断“是不是这个页面”的信息，core 放高频主结论，explain 放低频补充。
 - **按需加载参考文档**：
   - 查询或读取 DevWiki 项目知识前 → 读 `references/devwiki.md`
+  - 每个用户问题进入 DevWiki 定位流程时 → 读 `references/graphify-bridge.md` 并执行一次 Graphify Bridge Gate，后续搜索复用 `Graphify Context`
   - 本地搜索低置信、需语义 query 升档时 → 先读 `references/query-rules.md`，再使用 `wikimesh query`
 
 不要凭空回答项目事实；先查 DevWiki 文档，优先基于 topic / workflow / troubleshooting / raw 总结；每个关键结论都要能追溯来源。
@@ -34,6 +35,7 @@ argument-hint: "<问题>"
 - 先给出语义识别结果：explain_topic / locate_code / troubleshoot / public_answer / compare
 - 命中的 Topic / Workflow / Troubleshooting 页面
 - 知识缺口、冲突和待确认项
+- 宽范围问题需说明本轮覆盖范围、相关但未展开项或明确排除项；窄范围问题不做横向扩展
 - 必要的代码定位线索、修改影响和测试建议，只使用 DevWiki 文档中已有信息；缺少代码锚点且需要 DevWiki 定位入口时，建议显式使用 `$devwiki-code`，已有明确锚点时按普通代码查看处理
 - 只有用户明确要求保存回答、沉淀结论、写入报告，且 `active_source=local` 时，才写入 `wiki/outputs/<query-slug>.md` 并追加 `wiki/log.md`；`active_source=remote` 时只输出报告正文和建议保存位置
 
@@ -56,12 +58,14 @@ argument-hint: "<问题>"
 按 `references/devwiki.md` 的结构化定位规则串行搜索：
 
 ```text
-glossary keywords → index → glossary → 选择 topic 或 workflow → 必要时加载 query-rules.md 后使用 wikimesh query
+Graphify Bridge Gate（每个问题一次；命中可验证记忆且 core 足够时可直接回答） → index → glossary → Scope Stability Check → 必要时 glossary keywords → 选择 topic 或 workflow → 必要时加载 query-rules.md 后使用 wikimesh query
 ```
 
-- 定位和读取必须服从 `references/devwiki.md` 的 Glossary Alignment、Competitor Check、Card Scoring、Evidence Path 和 Confirmation Actions。
+- 定位和读取必须服从 `references/devwiki.md` 的 Scope Stability Check、Glossary Alignment、Competitor Check、Card Scoring、Evidence Path 和 Confirmation Actions。
+- 读取 core/explain 前先判定 `stable_narrow` / `unstable` / `stable_broad`：窄范围保持单候选高效路径；不稳定只读 card 并确认范围；宽范围才构造候选池和做最小覆盖检查。
 - 命中候选后先读 card。“确认匹配”不是 agent 自行判断通过；当 reference 判定为 medium / low 时必须停止在 card 阶段，并请求用户确认问题意图和业务范围，不得继续读取 core/explain。
 - 只有 Evidence Path 为 high，或用户确认 medium 路径后，才按语义深度阅读 core/explain。
+- Graphify Bridge Gate 必须服从 `references/graphify-bridge.md`：如果 `Graphify Context.learned` 是 `preferred/corrected/tentative` 且能映射 Wiki slug，先读这些 slug 的 card/core；card 匹配且 core 足够回答时可直接回答，不再执行 index/glossary。`contested/stale/dead_end` 或无法映射时，Graphify 只作为预热候选，继续原生 Wikimesh 流程。
 - locate_code 默认回答 Workflow 文档中的实现入口、模块职责、状态流/数据流、副作用和文档中已记录的代码线索。
 - 没有可靠候选、没有独立 Topic/Workflow 或用户未确认候选时，不进入 raw/qmd/其他页面综合推断新主题；只说明未找到可靠依据、列出检索过的入口和建议用户补充锚点。
 - 如果 `wiki/index.md`、`wiki/glossary.md` 或目标目录缺失，或者真实页面仍不足以支撑结论，输出：
