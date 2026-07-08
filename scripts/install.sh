@@ -55,7 +55,7 @@ asset_name() {
 	case "${os}-${arch}" in
 		linux-amd64|linux-arm64) printf '%s-%s-%s.tar.gz' "$BINARY_NAME" "$os" "$arch" ;;
 		darwin-amd64) printf '%s-darwin-amd64.tar.gz' "$BINARY_NAME" ;;
-		darwin-arm64) printf '%s-darwin-arm64-metal.tar.gz' "$BINARY_NAME" ;;
+		darwin-arm64) printf '%s-darwin-arm64.tar.gz' "$BINARY_NAME" ;;
 		*) fail "unsupported release platform: ${os}/${arch}" ;;
 	esac
 }

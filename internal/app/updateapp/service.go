@@ -240,7 +240,7 @@ func assetName(goos, goarch string) (string, error) {
 	case goos == "darwin" && goarch == "amd64":
 		return binaryBase + "-darwin-amd64.tar.gz", nil
 	case goos == "darwin" && goarch == "arm64":
-		return binaryBase + "-darwin-arm64-metal.tar.gz", nil
+		return binaryBase + "-darwin-arm64.tar.gz", nil
 	case goos == "windows" && goarch == "amd64":
 		return binaryBase + "-windows-amd64.zip", nil
 	default:

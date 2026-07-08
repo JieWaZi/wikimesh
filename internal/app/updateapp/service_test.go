@@ -167,7 +167,7 @@ func TestUpdateRejectsChecksumMismatch(t *testing.T) {
 func TestSelectAssetMatchesWikimeshReleaseNames(t *testing.T) {
 	checksums := strings.Join([]string{
 		"aaa  ./wikimesh-linux-amd64.tar.gz",
-		"bbb  ./wikimesh-darwin-arm64-metal.tar.gz",
+		"bbb  ./wikimesh-darwin-arm64.tar.gz",
 		"ccc  ./wikimesh-windows-amd64.zip",
 	}, "\n")
 
@@ -178,7 +178,7 @@ func TestSelectAssetMatchesWikimeshReleaseNames(t *testing.T) {
 		want   string
 	}{
 		{name: "linux", goos: "linux", goarch: "amd64", want: "wikimesh-linux-amd64.tar.gz"},
-		{name: "darwin arm64 uses metal asset", goos: "darwin", goarch: "arm64", want: "wikimesh-darwin-arm64-metal.tar.gz"},
+		{name: "darwin arm64", goos: "darwin", goarch: "arm64", want: "wikimesh-darwin-arm64.tar.gz"},
 		{name: "windows uses zip", goos: "windows", goarch: "amd64", want: "wikimesh-windows-amd64.zip"},
 	}
 	for _, tt := range tests {

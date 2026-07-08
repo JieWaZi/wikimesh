@@ -41,13 +41,17 @@ func TestBuildWorkflowPublishesReleaseArchivesAndChecksumsOnTags(t *testing.T) {
 		".wikimesh/release/wikimesh-linux-amd64.tar.gz",
 		".wikimesh/release/wikimesh-linux-arm64.tar.gz",
 		".wikimesh/release/wikimesh-darwin-amd64.tar.gz",
-		".wikimesh/release/wikimesh-darwin-arm64-metal.tar.gz",
+		".wikimesh/release/wikimesh-darwin-arm64.tar.gz",
 		".wikimesh/release/wikimesh-windows-amd64.zip",
 		".wikimesh/dist/checksums.txt",
 	} {
 		if !strings.Contains(workflow, want) {
 			t.Fatalf("release workflow missing %q", want)
 		}
+	}
+	legacyAsset := "darwin-arm64-" + "metal"
+	if strings.Contains(workflow, legacyAsset) {
+		t.Fatalf("release workflow should not publish legacy darwin arm64 Metal asset")
 	}
 }
 

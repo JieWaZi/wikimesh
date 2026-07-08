@@ -45,3 +45,18 @@ func TestInstallScriptsAreAdaptedForWikimesh(t *testing.T) {
 		}
 	}
 }
+
+func TestInstallScriptUsesPlainDarwinARM64Asset(t *testing.T) {
+	content, err := os.ReadFile("install.sh")
+	if err != nil {
+		t.Fatalf("read install.sh: %v", err)
+	}
+	script := string(content)
+	legacyAsset := "darwin-arm64-" + "metal"
+	if strings.Contains(script, legacyAsset) {
+		t.Fatalf("install.sh should not reference legacy darwin arm64 Metal asset")
+	}
+	if !strings.Contains(script, "darwin-arm64.tar.gz") {
+		t.Fatalf("install.sh should resolve darwin arm64 to wikimesh-darwin-arm64.tar.gz")
+	}
+}
