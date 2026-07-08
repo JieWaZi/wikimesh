@@ -55,6 +55,29 @@ func TestBuildWorkflowPublishesReleaseArchivesAndChecksumsOnTags(t *testing.T) {
 	}
 }
 
+func TestBuildWorkflowChecksOutInstallScriptsBeforeRelease(t *testing.T) {
+	data, err := os.ReadFile("../../../.github/workflows/build.yml")
+	if err != nil {
+		t.Fatalf("ReadFile(build.yml) error = %v", err)
+	}
+	workflow := string(data)
+	checksumsIndex := strings.Index(workflow, "  checksums:")
+	if checksumsIndex < 0 {
+		t.Fatalf("build workflow missing checksums job")
+	}
+	checksumsJob := workflow[checksumsIndex:]
+
+	for _, want := range []string{
+		"uses: actions/checkout@v4",
+		"scripts/install.sh",
+		"scripts/install.ps1",
+	} {
+		if !strings.Contains(checksumsJob, want) {
+			t.Fatalf("checksums job missing %q", want)
+		}
+	}
+}
+
 func TestBuildWorkflowDoesNotInstallLlamaRuntimeDuringPackaging(t *testing.T) {
 	data, err := os.ReadFile("../../../.github/workflows/build.yml")
 	if err != nil {

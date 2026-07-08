@@ -159,6 +159,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [package, package-windows]
     steps:
+      # 标签发布需要随 release 上传安装脚本，因此这里也要拉取源码。
+      - name: Checkout
+        uses: actions/checkout@v4
+
       # 下载所有平台 checksum artifact。
       - name: Download checksums
         uses: actions/download-artifact@v4
