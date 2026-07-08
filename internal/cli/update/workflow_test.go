@@ -50,3 +50,21 @@ func TestBuildWorkflowPublishesReleaseArchivesAndChecksumsOnTags(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildWorkflowDoesNotInstallLlamaRuntimeDuringPackaging(t *testing.T) {
+	data, err := os.ReadFile("../../../.github/workflows/build.yml")
+	if err != nil {
+		t.Fatalf("ReadFile(build.yml) error = %v", err)
+	}
+	workflow := string(data)
+
+	for _, forbidden := range []string{
+		"Install llama.cpp libraries",
+		"make install-llama",
+		"model lib install",
+	} {
+		if strings.Contains(workflow, forbidden) {
+			t.Fatalf("build workflow should not install llama.cpp runtime during packaging, found %q", forbidden)
+		}
+	}
+}

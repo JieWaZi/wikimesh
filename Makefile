@@ -17,17 +17,16 @@ build:
 	mkdir -p $(dir $(BINARY))
 	env -u GOROOT GOCACHE=$(GOCACHE) $(GO) build -o $(BINARY) ./cmd/wikimesh
 
-# 安装 yzma/llama.cpp 运行时动态库，默认目录是 .wikimesh/lib。
+# 按需安装 yzma/llama.cpp 运行时动态库，默认目录是 .wikimesh/lib。
 install-llama: build
-	$(BINARY) model lib install --lib "$(LLAMA_LIB)" --processor "$(LLAMA_PROCESSOR)" --version "$(LLAMA_VERSION)"
+	$(BINARY) qmd model lib install --lib "$(LLAMA_LIB)" --processor "$(LLAMA_PROCESSOR)" --version "$(LLAMA_VERSION)"
 
-# 打包当前构建产物和已安装的 llama.cpp 动态库。
+# 打包当前构建产物；本地 GGUF 运行时由用户按需安装。
 package: build
 	mkdir -p $(dir $(PACKAGE))
 	rm -rf .wikimesh/package
 	mkdir -p .wikimesh/package
 	cp "$(BINARY)" .wikimesh/package/
-	if [ -d "$(LLAMA_LIB)" ]; then cp -R "$(LLAMA_LIB)"/. .wikimesh/package/; fi
 	LANG=C LC_ALL=C tar -czf $(PACKAGE) -C .wikimesh/package .
 
 # 运行默认构建产物。

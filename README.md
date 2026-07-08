@@ -76,7 +76,7 @@ Wikimesh 当前支持：
 - 扫描 Markdown/文本文件，写入文档级 FTS、chunk FTS、chunk 元数据和向量表。
 - 为已索引 chunk 生成 embedding，支持按 collection 过滤、覆盖模型配置和强制重建。
 - 执行关键词检索、向量检索和混合查询；结果默认以缩进 JSON 输出，便于脚本和 agent 消费。
-- 下载配置中的 GGUF 模型，安装 llama.cpp 运行时动态库。
+- 按需下载配置中的 GGUF 模型，并安装 llama.cpp 运行时动态库。
 - 从 GitHub Release 自更新当前 Wikimesh 可执行文件，并校验 `checksums.txt`。
 
 ## 安装
@@ -114,6 +114,25 @@ wikimesh update
 ```
 
 `wikimesh update` 会从 GitHub Release 下载 `checksums.txt`，按当前系统和架构选择匹配的压缩包，校验 SHA256 后替换当前正在运行的 `wikimesh`。Windows 会在当前进程退出后延迟替换，请重新打开终端后继续使用。
+
+### 本地 GGUF 按需安装
+
+Release 安装包默认只安装 `wikimesh` 二进制，不会在安装或编译阶段自动下载 llama.cpp 运行时库和 GGUF 模型。只使用 Wiki 初始化、页面读取、关键词搜索、repo 管理、skill 安装，或 qmd 的 API/Ollama 后端时，不需要额外安装本地 GGUF 运行时。
+
+如果需要使用本地 GGUF 模型执行 embedding、向量检索、混合查询、query expansion 或 rerank，安装完成后在目标工作区执行：
+
+```sh
+wikimesh qmd model lib install
+wikimesh qmd model download all
+```
+
+`wikimesh qmd model lib install` 默认把 llama.cpp 动态库安装到 `.wikimesh/lib`。如需指定后端，可使用 `--processor cpu|metal|cuda|vulkan|rocm`；例如 Apple Silicon 上可执行：
+
+```sh
+wikimesh qmd model lib install --processor metal
+```
+
+也可以通过 `WIKIMESH_YZMA_LIB` 或 `YZMA_LIB` 指向已有的 llama.cpp 动态库目录。
 
 ## 快速开始
 
@@ -197,11 +216,11 @@ wikimesh qmd update --pull
 wikimesh qmd status
 ```
 
-如果需要向量检索或混合查询，先下载模型、安装 llama.cpp 运行时库，再生成 embedding：
+如果需要本地 GGUF 向量检索或混合查询，先安装 llama.cpp 运行时库、下载模型，再生成 embedding：
 
 ```sh
-wikimesh qmd model download all
 wikimesh qmd model lib install
+wikimesh qmd model download all
 wikimesh qmd embed --collection docs
 ```
 

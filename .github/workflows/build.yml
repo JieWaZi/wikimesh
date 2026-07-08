@@ -38,22 +38,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Linux x64 CPU 动态库包。
+          # Linux x64 二进制包。
           - os: ubuntu-24.04
             asset: linux-amd64
-            processor: cpu
-          # Linux arm64 CPU 动态库包。
+          # Linux arm64 二进制包。
           - os: ubuntu-24.04-arm
             asset: linux-arm64
-            processor: cpu
-          # macOS Intel CPU 动态库包。
+          # macOS Intel 二进制包。
           - os: macos-15-intel
             asset: darwin-amd64
-            processor: cpu
-          # macOS arm64 Metal 动态库包。
+          # macOS arm64 二进制包。
           - os: macos-15
             asset: darwin-arm64-metal
-            processor: metal
 
     steps:
       # 拉取当前仓库源码。
@@ -70,10 +66,6 @@ jobs:
       # 构建 wikimesh 二进制。
       - name: Build binary
         run: make build BINARY=.wikimesh/bin/wikimesh-${{ matrix.asset }}
-
-      # 安装 yzma/llama.cpp 预编译动态库。
-      - name: Install llama.cpp libraries
-        run: make install-llama BINARY=.wikimesh/bin/wikimesh-${{ matrix.asset }} LLAMA_PROCESSOR=${{ matrix.processor }}
 
       # 确认构建产物可以启动并打印帮助。
       - name: Smoke test
@@ -126,11 +118,6 @@ jobs:
           New-Item -ItemType Directory -Force .wikimesh/bin | Out-Null
           go build -o .wikimesh/bin/wikimesh-windows-amd64.exe ./cmd/wikimesh
 
-      # 安装 Windows 版 yzma/llama.cpp 预编译动态库。
-      - name: Install llama.cpp libraries
-        shell: pwsh
-        run: '& .\.wikimesh\bin\wikimesh-windows-amd64.exe model lib install --lib .wikimesh/lib --processor cpu --os windows'
-
       # 确认构建产物可以启动并打印帮助。
       - name: Smoke test
         shell: pwsh
@@ -143,9 +130,6 @@ jobs:
           New-Item -ItemType Directory -Force .wikimesh/package | Out-Null
           New-Item -ItemType Directory -Force .wikimesh/dist | Out-Null
           Copy-Item .wikimesh/bin/wikimesh-windows-amd64.exe .wikimesh/package/
-          if (Test-Path .wikimesh/lib) {
-            Copy-Item .wikimesh/lib/* .wikimesh/package/ -Recurse -Force
-          }
           Compress-Archive -Path .wikimesh/package/* -DestinationPath .wikimesh/dist/wikimesh-windows-amd64.zip -Force
 
       # 生成 Windows 产物 checksum，供 release 阶段合并为 checksums.txt。
