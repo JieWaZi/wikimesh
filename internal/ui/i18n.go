@@ -4,6 +4,8 @@ package ui
 type Catalog struct {
 	// RootShort 是根命令的一句话说明。
 	RootShort string
+	// VersionShort 是 version 命令说明。
+	VersionShort string
 	// QMDShort 是 qmd 子命令分组说明。
 	QMDShort string
 	// CollectionShort 是 qmd collection 分组说明。
@@ -318,6 +320,8 @@ type Catalog struct {
 	OutputQMDExistsFmt string
 	// OutputQMDInstallingLibFmt 是 llama.cpp 运行时库安装输出模板。
 	OutputQMDInstallingLibFmt string
+	// OutputVersionFmt 是版本信息输出模板。
+	OutputVersionFmt string
 	// OutputQMDInstalledFmt 是运行时库安装完成输出模板。
 	OutputQMDInstalledFmt string
 	// ErrorUnsupportedInitModeFmt 是不支持 init mode 的错误模板。
@@ -344,6 +348,7 @@ type Catalog struct {
 
 var defaultCatalog = Catalog{
 	RootShort:                           "Wikimesh 知识库命令行",
+	VersionShort:                        "输出 Wikimesh 版本和构建时间",
 	QMDShort:                            "管理 qmd 文档集合、索引和检索",
 	CollectionShort:                     "管理已索引的文档集合",
 	CollectionAddShort:                  "添加文档集合",
@@ -501,6 +506,7 @@ var defaultCatalog = Catalog{
 	OutputQMDDownloadedFmt:              "已下载：%s -> %s\n",
 	OutputQMDExistsFmt:                  "已存在：%s\n",
 	OutputQMDInstallingLibFmt:           "正在安装 llama.cpp：processor=%s version=%s -> %s\n",
+	OutputVersionFmt:                    "version: %s\nbuild_time: %s\n",
 	OutputQMDInstalledFmt:               "已安装：%s\n",
 	ErrorUnsupportedInitModeFmt:         "不支持的初始化方式：%q",
 	ErrorProjectRequired:                "项目名称不能为空",

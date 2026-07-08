@@ -296,6 +296,7 @@ collections:
 ```text
 wikimesh init                         初始化 Wikimesh 工作区
 wikimesh update                       更新当前 Wikimesh 可执行文件
+wikimesh version                      输出 Wikimesh 版本和构建时间
 wikimesh search                       搜索 index/glossary/topic/workflow
 wikimesh read                         读取 topic/workflow 的指定 view
 wikimesh glossary keywords            输出 glossary 第一列关键词

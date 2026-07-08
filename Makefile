@@ -5,6 +5,9 @@ PACKAGE ?= .wikimesh/dist/wikimesh.tar.gz
 LLAMA_LIB ?= .wikimesh/lib
 LLAMA_PROCESSOR ?= auto
 LLAMA_VERSION ?= latest
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+BUILD_TIME ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+GO_LDFLAGS ?= -X github.com/JieWaZi/wikimesh/internal/cli.Version=$(VERSION) -X github.com/JieWaZi/wikimesh/internal/cli.BuildTime=$(BUILD_TIME)
 
 .PHONY: test build install-llama package run clean
 
@@ -15,7 +18,7 @@ test:
 # 构建默认二进制；本地 GGUF 后端通过 yzma 动态加载 llama.cpp。
 build:
 	mkdir -p $(dir $(BINARY))
-	env -u GOROOT GOCACHE=$(GOCACHE) $(GO) build -o $(BINARY) ./cmd/wikimesh
+	env -u GOROOT GOCACHE=$(GOCACHE) $(GO) build -ldflags "$(GO_LDFLAGS)" -o $(BINARY) ./cmd/wikimesh
 
 # 按需安装 yzma/llama.cpp 运行时动态库，默认目录是 .wikimesh/lib。
 install-llama: build
