@@ -32,7 +32,6 @@ func Logo() string {
 	for i, line := range logoLines {
 		lines = append(lines, fmt.Sprintf("%s%s%s", grays[i], line, Reset))
 	}
-	lines = append(lines, "\x1b[38;5;245mWIKIMESH\x1b[0m")
 	lines = append(lines, "")
 	return strings.Join(lines, "\n") + "\n"
 }

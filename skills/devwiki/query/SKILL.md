@@ -11,10 +11,11 @@ argument-hint: "<问题>"
 - **证据落地**：每个关键结论必须落到真实来源（wiki 页面、raw 文件或文档内已记录的代码线索）
 - **文档优先**：本 Skill 默认完整消费 DevWiki 文档后再回答。实现类问题优先读 workflow card → workflow core → workflow explain；不因为用户问“怎么实现”就自动搜索真实代码。
 - **视图分层读取**：先用 `--view card` 判断命中，再用 `--view core` 回答主问题，只有 core 不够时读 `--view explain`。card 只放判断“是不是这个页面”的信息，core 放高频主结论，explain 放低频补充。
+- **Graphify 内部化**：Graphify Bridge Gate 只用于 agent 内部定位加速；**用户可见回答不得包含 Graphify Context、graphify 命令输出或 Connections 段**，除非用户明确要求调试 Graphify。
 - **按需加载参考文档**：
-  - 查询或读取 DevWiki 项目知识前 → 读 `references/devwiki.md`
-  - 每个用户问题进入 DevWiki 定位流程时 → 读 `references/graphify-bridge.md` 并执行一次 Graphify Bridge Gate，后续搜索复用 `Graphify Context`
-  - 本地搜索低置信、需语义 query 升档时 → 先读 `references/query-rules.md`，再使用 `wikimesh query`
+    - 查询或读取 DevWiki 项目知识前 → 读 `references/devwiki.md`
+    - 每个用户问题进入 DevWiki 定位流程时 → 读 `references/graphify-bridge.md` 并执行一次 Graphify Bridge Gate（含精简版 `graphify explain`），后续搜索复用内部 `Graphify Context`
+    - 本地搜索低置信、需语义 query 升档时 → 先读 `references/query-rules.md`，再使用 `wikimesh query`
 
 不要凭空回答项目事实；先查 DevWiki 文档，优先基于 topic / workflow / troubleshooting / raw 总结；每个关键结论都要能追溯来源。
 
@@ -30,14 +31,16 @@ argument-hint: "<问题>"
 - 不要在需要修改当前代码且缺少代码锚点的请求中继续执行 query 的 locate_code 全流程；这类请求建议用户显式使用 `$devwiki-code` 走 `index → workflow card/core → 必要 topic core → 代码核对 → 测试 → 实现 → 验证`。
 - 只有用户明确要求保存回答、沉淀结论或写入报告，且 `repo info <project>` 显示 `active_source=local` 时，本 Skill 才写 `wiki/outputs/`；`active_source=remote` 时只输出报告正文。
 
-## Outputs
+## Outputs（用户可见）
 
-- 先给出语义识别结果：explain_topic / locate_code / troubleshoot / public_answer / compare
-- 命中的 Topic / Workflow / Troubleshooting 页面
-- 知识缺口、冲突和待确认项
+- 语义识别结果：explain_topic / locate_code / troubleshoot / public_answer / compare
+- 证据路径：命中的 Topic / Workflow / Troubleshooting 页面（用业务中文名，不写 slug 混排行）
+- 正文结论、知识缺口、冲突和待确认项
 - 宽范围问题需说明本轮覆盖范围、相关但未展开项或明确排除项；窄范围问题不做横向扩展
 - 必要的代码定位线索、修改影响和测试建议，只使用 DevWiki 文档中已有信息；缺少代码锚点且需要 DevWiki 定位入口时，建议显式使用 `$devwiki-code`，已有明确锚点时按普通代码查看处理
 - 只有用户明确要求保存回答、沉淀结论、写入报告，且 `active_source=local` 时，才写入 `wiki/outputs/<query-slug>.md` 并追加 `wiki/log.md`；`active_source=remote` 时只输出报告正文和建议保存位置
+
+**不要**在用户回答中输出 Graphify Context、graphify 命令、explain Connections、或「path/skipped/learned」调试字段。
 
 ## Workflow
 
@@ -47,25 +50,36 @@ argument-hint: "<问题>"
 2. 如果用户要求修改当前代码仓，且缺少具体文件、函数、代码块、当前 diff、完整 patch 或明确替换方式，停止本 Skill，建议显式使用 `$devwiki-code`。
 3. 如果用户已经给出具体代码锚点或明确改法，停止本 Skill，按普通代码编辑任务处理。
 4. 判断问题语义：
-   - `explain_topic`：用户想了解能力、功能、配置、边界、规则、联动。
-   - `locate_code`：用户想基于 DevWiki 文档了解代码入口、调用链、接口、数据流、实现机制、影响面、测试入口，但不要求本轮修改代码，也没有明确要求核对当前代码仓。
-   - `troubleshoot`：用户想解决报错、不生效、异常现象、诊断路径、修复建议。
-   - `public_answer`：用户要求对外说明、客户口径、官网/文档口径。
-   - `compare`：用户要求比较两个主题、方案或实现路径。
+    - `explain_topic`：用户想了解能力、功能、配置、边界、规则、联动。
+    - `locate_code`：用户想基于 DevWiki 文档了解代码入口、调用链、接口、数据流、实现机制、影响面、测试入口，但不要求本轮修改代码，也没有明确要求核对当前代码仓。
+    - `troubleshoot`：用户想解决报错、不生效、异常现象、诊断路径、修复建议。
+    - `public_answer`：用户要求对外说明、客户口径、官网/文档口径。
+    - `compare`：用户要求比较两个主题、方案或实现路径。
 
-### Step 2: 定位和读取
+### Step 2: Graphify Gate + 定位和读取
 
-按 `references/devwiki.md` 的结构化定位规则串行搜索：
+**2a. Graphify Bridge Gate（每个问题一次，按 `references/graphify-bridge.md` 执行）**
 
 ```text
-Graphify Bridge Gate（每个问题一次；命中可验证记忆且 core 足够时可直接回答） → index → glossary → Scope Stability Check → 必要时 glossary keywords → 选择 topic 或 workflow → 必要时加载 query-rules.md 后使用 wikimesh query
+reflect + query(--budget 600) → 精简 explain(grep Lesson/Source) → fast_path | fallback
+```
+
+- Gate 的 `graphify explain` 只用 `grep -E '^(Node:|  Source:|  Lesson:)'` 截断，**禁止**读取 Connections。
+- `preferred/corrected`（非 stale）且 preferred slug 集合经 card+core 够答 → **fast path**，**禁止**执行 2b。
+- 若已执行 `wikimesh search index/glossary/topic/workflow` → 必须记为 **fallback**，不得标 fast_path。
+- fast_path 下 **禁止**以「宽范围最小覆盖确认」为由再跑 index/glossary；preferred Topic 的 card/core 即是最小覆盖依据。
+
+**2b. Wikimesh 原生定位（仅 fallback 或 fast path core 不足时）**
+
+```text
+index → glossary → Scope Stability Check → 必要时 glossary keywords → 选择 topic 或 workflow → 必要时加载 query-rules.md 后使用 wikimesh query
 ```
 
 - 定位和读取必须服从 `references/devwiki.md` 的 Scope Stability Check、Glossary Alignment、Competitor Check、Card Scoring、Evidence Path 和 Confirmation Actions。
 - 读取 core/explain 前先判定 `stable_narrow` / `unstable` / `stable_broad`：窄范围保持单候选高效路径；不稳定只读 card 并确认范围；宽范围才构造候选池和做最小覆盖检查。
 - 命中候选后先读 card。“确认匹配”不是 agent 自行判断通过；当 reference 判定为 medium / low 时必须停止在 card 阶段，并请求用户确认问题意图和业务范围，不得继续读取 core/explain。
 - 只有 Evidence Path 为 high，或用户确认 medium 路径后，才按语义深度阅读 core/explain。
-- Graphify Bridge Gate 必须服从 `references/graphify-bridge.md`：如果 `Graphify Context.learned` 是 `preferred/corrected/tentative` 且能映射 Wiki slug，先读这些 slug 的 card/core；card 匹配且 core 足够回答时可直接回答，不再执行 index/glossary。`contested/stale/dead_end` 或无法映射时，Graphify 只作为预热候选，继续原生 Wikimesh 流程。
+- fast path 时：对全部 `preferred_slugs` 读 card/core；宽范围读齐 preferred supporting Topic 的 core 后直接组织答案。
 - locate_code 默认回答 Workflow 文档中的实现入口、模块职责、状态流/数据流、副作用和文档中已记录的代码线索。
 - 没有可靠候选、没有独立 Topic/Workflow 或用户未确认候选时，不进入 raw/qmd/其他页面综合推断新主题；只说明未找到可靠依据、列出检索过的入口和建议用户补充锚点。
 - 如果 `wiki/index.md`、`wiki/glossary.md` 或目标目录缺失，或者真实页面仍不足以支撑结论，输出：
